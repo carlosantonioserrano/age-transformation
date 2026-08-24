@@ -4,9 +4,13 @@ import type { StartTransformRequest, StartTransformResponse, TransformJob } from
 
 export const maxDuration = 30
 
-// Age-transformation model on Replicate (SAM-based face re-aging). Swap for
-// any other inpainting/age-transform model version as needed.
-const REPLICATE_MODEL_VERSION = "9222a21c181b707209ef12b5e0d3b4bc46b6b8bd2ff2a58d09b3fecc21e3ab60"
+// Age-transformation model on Replicate (SAM-based face re-aging: "Only a
+// Matter of Style"). Community models must be called via the versioned
+// /v1/predictions endpoint with an explicit version hash — the model-scoped
+// endpoint only works for official Replicate models and 404s otherwise.
+const REPLICATE_MODEL_OWNER = "yuval-alaluf"
+const REPLICATE_MODEL_NAME = "sam"
+const REPLICATE_MODEL_VERSION = "9222a21c181b707209ef12b5e0d7e94c994b58f01c7b2fec075d2e892362f13c"
 
 async function startReplicateJob(image: string, ageShift: number): Promise<string | null> {
   const token = process.env.REPLICATE_API_KEY
@@ -25,7 +29,9 @@ async function startReplicateJob(image: string, ageShift: number): Promise<strin
       }),
     })
 
-    if (!response.ok) return null
+    if (!response.ok) {
+      return null
+    }
     const data = await response.json()
     return data?.id ?? null
   } catch {
@@ -55,6 +61,7 @@ export async function POST(req: NextRequest) {
   jobStore.set(jobId, job)
 
   const providerConfigured = isProviderConfigured()
+  let usingRealProvider = false
 
   if (providerConfigured) {
     const externalId = await startReplicateJob(body.image, ageShift)
@@ -62,15 +69,19 @@ export async function POST(req: NextRequest) {
       job.status = "processing"
       job.progress = 10
       job.simulated = false
+      job.externalId = externalId
       jobStore.set(jobId, job)
-      // A real integration would poll Replicate's prediction endpoint using
-      // `externalId` from the GET route below instead of the mock timers.
+      usingRealProvider = true
     }
   }
 
-  // Always run the simulated pipeline as a safe fallback so the UI keeps
-  // working end-to-end even without a configured provider key.
-  runMockJob(jobId)
+  // Only fall back to the simulated pipeline when no provider key is
+  // configured, or the real Replicate call failed to start. A running real
+  // job is polled for its actual status/output by the GET route instead of
+  // being overwritten by the mock timers.
+  if (!usingRealProvider) {
+    runMockJob(jobId)
+  }
 
   const payload: StartTransformResponse = { jobId }
   return NextResponse.json(payload)
