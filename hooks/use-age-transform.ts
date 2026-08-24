@@ -1,102 +1,72 @@
 "use client"
 
-import { useCallback, useRef, useState } from "react"
-import type { PipelineStage } from "@/components/status-indicator"
-import type { JobStatusResponse, StartTransformResponse } from "@/lib/types"
+import { useState } from "react"
 
-const POLL_INTERVAL_MS = 500
+export type Stage = "idle" | "uploading" | "processing" | "rendering" | "done" | "error"
 
 export function useAgeTransform() {
   const [sourceImage, setSourceImage] = useState<string | null>(null)
-  const [ageShift, setAgeShift] = useState(20)
-  const [stage, setStage] = useState<PipelineStage>("idle")
-  const [progress, setProgress] = useState(0)
+  const [ageShift, setAgeShift] = useState<number>(20)
+  const [stage, setStage] = useState<Stage>("idle")
+  const [progress, setProgress] = useState<number>(0)
   const [resultImage, setResultImage] = useState<string | null>(null)
-  const [simulated, setSimulated] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const clearPolling = useCallback(() => {
-    if (pollRef.current) {
-      clearTimeout(pollRef.current)
-      pollRef.current = null
-    }
-  }, [])
+  // Forzamos simulated a false para deshabilitar el modo mock
+  const simulated = false
 
-  const poll = useCallback(
-    (jobId: string) => {
-      const tick = async () => {
-        try {
-          const res = await fetch(`/api/transform/${jobId}`)
-          if (!res.ok) throw new Error("No se pudo consultar el estado del trabajo.")
-          const data: JobStatusResponse = await res.json()
-
-          setProgress(data.progress)
-          setSimulated(data.simulated)
-
-          if (data.status === "succeeded" && data.resultImage) {
-            setResultImage(data.resultImage)
-            setStage("done")
-            return
-          }
-          if (data.status === "failed") {
-            setError(data.error ?? "La transformación falló.")
-            setStage("error")
-            return
-          }
-
-          setStage(data.progress < 50 ? "processing" : "rendering")
-          pollRef.current = setTimeout(tick, POLL_INTERVAL_MS)
-        } catch {
-          setError("Se perdió la conexión con el servidor.")
-          setStage("error")
-        }
-      }
-      tick()
-    },
-    [],
-  )
-
-  const startTransform = useCallback(async () => {
+  const startTransform = async () => {
     if (!sourceImage) return
-    clearPolling()
-    setError(null)
-    setResultImage(null)
+
     setStage("uploading")
-    setProgress(0)
+    setProgress(10)
+    setError(null)
 
     try {
-      const res = await fetch("/api/transform", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: sourceImage, ageShift }),
-      })
-      if (!res.ok) throw new Error("No se pudo iniciar la transformación.")
-      const data: StartTransformResponse = await res.json()
       setStage("processing")
-      poll(data.jobId)
-    } catch {
-      setError("No se pudo iniciar la transformación.")
+      setProgress(40)
+
+      // Llamada real al endpoint de Next.js
+      const response = await fetch("/api/transform", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          image: sourceImage,
+          ageShift,
+        }),
+      })
+
+      setProgress(80)
+
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Error al procesar la imagen con IA.")
+      }
+
+      setResultImage(data.resultImage)
+      setStage("done")
+      setProgress(100)
+    } catch (err) {
+      console.error(err)
+      setError(err instanceof Error ? err.message : "Error inesperado al conectar con el servidor.")
       setStage("error")
     }
-  }, [sourceImage, ageShift, clearPolling, poll])
+  }
 
-  const reset = useCallback(() => {
-    clearPolling()
+  const resetResult = () => {
+    setResultImage(null)
+    setStage("idle")
+    setProgress(0)
+    setError(null)
+  }
+
+  const reset = () => {
     setSourceImage(null)
-    setStage("idle")
-    setProgress(0)
-    setResultImage(null)
-    setError(null)
-  }, [clearPolling])
-
-  const resetResult = useCallback(() => {
-    clearPolling()
-    setStage("idle")
-    setProgress(0)
-    setResultImage(null)
-    setError(null)
-  }, [clearPolling])
+    resetResult()
+  }
 
   return {
     sourceImage,
