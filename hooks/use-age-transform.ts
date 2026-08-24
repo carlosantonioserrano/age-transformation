@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react"
 import type { PipelineStage } from "@/components/status-indicator"
 import type { JobStatusResponse, StartTransformResponse } from "@/lib/types"
 
-const POLL_INTERVAL_MS = 500
+const POLL_INTERVAL_MS = 1200
 
 export function useAgeTransform() {
   const [sourceImage, setSourceImage] = useState<string | null>(null)
@@ -28,7 +28,10 @@ export function useAgeTransform() {
       const tick = async () => {
         try {
           const res = await fetch(`/api/transform/${jobId}`)
-          if (!res.ok) throw new Error("No se pudo consultar el estado del trabajo.")
+          if (!res.ok) {
+            const payload = await res.json().catch(() => null)
+            throw new Error(payload?.error ?? "No se pudo consultar el estado del trabajo.")
+          }
           const data: JobStatusResponse = await res.json()
 
           setProgress(data.progress)
@@ -47,8 +50,8 @@ export function useAgeTransform() {
 
           setStage(data.progress < 50 ? "processing" : "rendering")
           pollRef.current = setTimeout(tick, POLL_INTERVAL_MS)
-        } catch {
-          setError("Se perdió la conexión con el servidor.")
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Se perdió la conexión con el servidor.")
           setStage("error")
         }
       }
@@ -75,8 +78,8 @@ export function useAgeTransform() {
       const data: StartTransformResponse = await res.json()
       setStage("processing")
       poll(data.jobId)
-    } catch {
-      setError("No se pudo iniciar la transformación.")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo iniciar la transformación.")
       setStage("error")
     }
   }, [sourceImage, ageShift, clearPolling, poll])

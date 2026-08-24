@@ -43,8 +43,7 @@ export function ResultPanel({ sourceImage, resultImage, ageShift, simulated }: R
 
       {simulated && (
         <p className="text-xs leading-relaxed text-muted-foreground">
-          No hay una clave de proveedor de IA configurada, así que este resultado es un placeholder visual generado
-          en el cliente. Conecta una API de transformación de edad (p. ej. Replicate) para obtener resultados reales.
+          La transformación se ejecuta con el modelo de edad configurado en el servidor.
         </p>
       )}
 

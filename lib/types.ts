@@ -4,12 +4,14 @@ export interface TransformJob {
   id: string
   status: JobStatus
   ageShift: number
+  targetAge: number
   sourceImage: string
   resultImage?: string
   progress: number
   error?: string
   createdAt: number
   simulated: boolean
+  externalId?: string | null
 }
 
 export interface StartTransformRequest {
