@@ -1,68 +1,87 @@
-import { NextResponse } from "next/server"
-import { createJobId, isProviderConfigured, jobStore } from "@/lib/transform-store"
+import { type NextRequest, NextResponse } from "next/server"
+import { createJobId, isProviderConfigured, jobStore, runMockJob } from "@/lib/transform-store"
 import type { StartTransformRequest, StartTransformResponse, TransformJob } from "@/lib/types"
 
-export const maxDuration = 60
+export const maxDuration = 30
 
-// Current published SAM version on Replicate.
-const REPLICATE_MODEL_VERSION =
-  "9222a21c181b707209ef12b5e0d7e94c994b58f01c7b2fec075d2e892362f13c"
+// Identity-preserving age-transformation via Flux Kontext Pro (Black Forest
+// Labs), an instruction-guided image editing model. This replaced the
+// yuval-alaluf/sam model, which frequently failed to preserve the subject's
+// identity (and sometimes even apparent gender) because it reconstructs the
+// whole face from a StyleGAN latent instead of editing the original pixels.
+//
+// Flux Kontext Pro is an "official model" on Replicate, so it's called via
+// POST /v1/models/{owner}/{name}/predictions and does NOT take a `version`
+// field (unlike community models such as SAM).
+const FLUX_KONTEXT_MODEL_ENDPOINT = "https://api.replicate.com/v1/models/black-forest-labs/flux-kontext-pro/predictions"
 
-async function startReplicateJob(image: string, targetAge: number): Promise<string | null> {
-  const token = process.env.REPLICATE_API_TOKEN || process.env.REPLICATE_API_KEY
-  if (!token) return null
-
-  const response = await fetch("https://api.replicate.com/v1/predictions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      version: REPLICATE_MODEL_VERSION,
-      input: {
-        image,
-        target_age: String(targetAge),
-      },
-    }),
-  })
-
-  if (!response.ok) {
-    const message = await response.text().catch(() => "")
-    throw new Error(`Replicate ${response.status}: ${message}`)
-  }
-
-  const data = await response.json()
-  if (!data?.id) throw new Error("Replicate no devolvió un prediction id.")
-  return data.id
+function buildAgeTransformPrompt(targetAge: number): string {
+  return (
+    `Change the apparent age of the person in this photo so they look exactly ` +
+    `${targetAge} years old — this may mean making them look older or younger ` +
+    "than they currently appear. " +
+    "Precisely preserve their exact facial identity, gender, ethnicity, face shape, " +
+    "eye color, hairstyle (the general cut/style), facial expression, and any " +
+    "distinctive features (e.g. moles, freckles, scars), as well as their clothing " +
+    "and the original photo's background, pose, and lighting. " +
+    "Naturally adjust only the features that change with age to match a " +
+    `${targetAge}-year-old appearance: skin texture and wrinkles (adding or smoothing ` +
+    "them as needed), hair color (greying or restoring its natural color), hair " +
+    "thickness and hairline, and other realistic signs of aging or youthfulness. " +
+    "Do not change who the person is."
+  )
 }
 
-export async function POST(req: Request) {
-  let body: StartTransformRequest
+async function startReplicateJob(image: string, targetAge: number): Promise<string | null> {
+  const token = process.env.REPLICATE_API_KEY
+  if (!token) return null
 
   try {
-    body = (await req.json()) as StartTransformRequest
-  } catch {
-    return NextResponse.json({ error: "El cuerpo de la petición no es JSON válido." }, { status: 400 })
+    const response = await fetch(FLUX_KONTEXT_MODEL_ENDPOINT, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Prefer: "wait=0", // return immediately with status "starting"; we poll ourselves
+      },
+      body: JSON.stringify({
+        input: {
+          prompt: buildAgeTransformPrompt(targetAge),
+          input_image: image,
+          aspect_ratio: "match_input_image",
+          output_format: "png",
+          safety_tolerance: 2, // 2 is the max allowed by Replicate when an input image is used
+        },
+      }),
+    })
+
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "")
+      console.error("Replicate: fallo al crear la predicción", response.status, detail)
+      return null
+    }
+
+    const data = await response.json()
+    return data?.id ?? null
+  } catch (err) {
+    console.error("Replicate: error de red al crear la predicción", err)
+    return null
   }
+}
+
+export async function POST(req: NextRequest) {
+  const body = (await req.json()) as StartTransformRequest
 
   if (!body?.image) {
     return NextResponse.json({ error: "Falta la imagen de origen." }, { status: 400 })
   }
 
-  const ageShift = Math.max(-50, Math.min(50, Number(body.ageShift ?? 20)))
-
-  // SAM expects a target age, not a relative age shift. For this app we use
-  // the slider around a reasonable current-age baseline; this can later be
-  // replaced with face-age estimation for a truly personalized target age.
-  const assumedCurrentAge = 30
-  const targetAge = Math.max(0, Math.min(100, assumedCurrentAge + ageShift))
+  const targetAge = Math.max(1, Math.min(100, body.targetAge ?? 50))
   const jobId = createJobId()
 
   const job: TransformJob = {
     id: jobId,
     status: "queued",
-    ageShift,
     targetAge,
     sourceImage: body.image,
     progress: 5,
@@ -71,27 +90,29 @@ export async function POST(req: Request) {
   }
   jobStore.set(jobId, job)
 
-  if (!isProviderConfigured()) {
-    job.status = "failed"
-    job.error = "No hay REPLICATE_API_TOKEN (o REPLICATE_API_KEY) configurado."
-    job.progress = 100
-    jobStore.set(jobId, job)
-    return NextResponse.json({ jobId } satisfies StartTransformResponse)
-  }
+  const providerConfigured = isProviderConfigured()
+  let usingRealProvider = false
 
-  try {
+  if (providerConfigured) {
     const externalId = await startReplicateJob(body.image, targetAge)
-    job.externalId = externalId
-    job.status = "processing"
-    job.progress = 10
-    job.simulated = false
-    jobStore.set(jobId, job)
-  } catch (error) {
-    job.status = "failed"
-    job.progress = 100
-    job.error = error instanceof Error ? error.message : "No se pudo iniciar Replicate."
-    jobStore.set(jobId, job)
+    if (externalId) {
+      job.status = "processing"
+      job.progress = 10
+      job.simulated = false
+      job.externalId = externalId
+      jobStore.set(jobId, job)
+      usingRealProvider = true
+      // The GET /api/transform/[jobId] route polls Replicate directly using
+      // `externalId` and updates this job's status/resultImage as it advances.
+    }
   }
 
-  return NextResponse.json({ jobId } satisfies StartTransformResponse)
+  // Only fall back to the simulated pipeline when there is no real provider
+  // job running (no key configured, or Replicate failed to accept the job).
+  if (!usingRealProvider) {
+    runMockJob(jobId)
+  }
+
+  const payload: StartTransformResponse = { jobId }
+  return NextResponse.json(payload)
 }

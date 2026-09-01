@@ -59,9 +59,6 @@ export function WebcamCapture({ image, onCapture, onReset }: WebcamCaptureProps)
             ref={webcamRef}
             audio={false}
             screenshotFormat="image/jpeg"
-            screenshotWidth={640}
-            screenshotHeight={480}
-            screenshotQuality={0.8}
             className="h-full w-full object-cover"
             onUserMedia={() => setCameraReady(true)}
             onUserMediaError={() => setCameraError(true)}

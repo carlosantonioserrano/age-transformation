@@ -1,10 +1,18 @@
 /**
+ * Baseline age used only to derive a purely cosmetic "older/younger"
+ * direction for the simulated-mode filter below. It has no bearing on the
+ * real provider call, which now sends the user's chosen target age directly.
+ */
+const SIMULATED_FILTER_BASELINE_AGE = 35
+
+/**
  * Returns a CSS/canvas filter string that visually hints at an aging or
  * de-aging effect. Used only while the app runs in simulation mode (no
  * real age-transformation provider configured), so the demo still shows a
  * meaningfully different "after" image instead of an identical copy.
  */
-export function getSimulatedFilter(ageShift: number): string {
+export function getSimulatedFilter(targetAge: number): string {
+  const ageShift = targetAge - SIMULATED_FILTER_BASELINE_AGE
   const t = Math.min(1, Math.abs(ageShift) / 50)
   if (t === 0) return "none"
 

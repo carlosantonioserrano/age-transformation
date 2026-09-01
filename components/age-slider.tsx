@@ -8,32 +8,26 @@ interface AgeSliderProps {
   disabled?: boolean
 }
 
-function getLabel(value: number) {
-  if (value === 0) return "Sin cambios"
-  if (value > 0) return `Envejecer ${value} años`
-  return `Rejuvenecer ${Math.abs(value)} años`
-}
-
 export function AgeSlider({ value, onChange, disabled }: AgeSliderProps) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between">
-        <span className="text-sm font-medium text-muted-foreground">Ajuste de edad</span>
-        <span className="font-heading text-lg text-primary tabular-nums">{getLabel(value)}</span>
+        <span className="text-sm font-medium text-muted-foreground">Edad de destino</span>
+        <span className="font-heading text-lg text-primary tabular-nums">{value} años</span>
       </div>
       <Slider
         value={[value]}
-        min={-50}
-        max={50}
-        step={1}
+        min={1}
+        max={100}
+        step={5}
         disabled={disabled}
         onValueChange={(v) => onChange(Array.isArray(v) ? v[0] : v)}
-        aria-label="Ajuste de edad en años"
+        aria-label="Edad de destino en años"
       />
       <div className="flex justify-between text-xs font-mono text-muted-foreground">
-        <span>-50 (más joven)</span>
-        <span>0</span>
-        <span>+50 (más mayor)</span>
+        <span>1 (bebé)</span>
+        <span>50</span>
+        <span>100</span>
       </div>
     </div>
   )

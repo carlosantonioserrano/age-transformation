@@ -3,7 +3,7 @@ export type JobStatus = "queued" | "processing" | "succeeded" | "failed"
 export interface TransformJob {
   id: string
   status: JobStatus
-  ageShift: number
+  /** Absolute target age (1-100) sent to the age-transformation model. */
   targetAge: number
   sourceImage: string
   resultImage?: string
@@ -11,12 +11,14 @@ export interface TransformJob {
   error?: string
   createdAt: number
   simulated: boolean
-  externalId?: string | null
+  /** Replicate prediction id, present only for real (non-simulated) jobs. */
+  externalId?: string
 }
 
 export interface StartTransformRequest {
   image: string
-  ageShift: number
+  /** Absolute target age (1-100), not a relative shift. */
+  targetAge: number
 }
 
 export interface StartTransformResponse {

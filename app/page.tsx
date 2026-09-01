@@ -16,8 +16,8 @@ export default function Page() {
   const {
     sourceImage,
     setSourceImage,
-    ageShift,
-    setAgeShift,
+    targetAge,
+    setTargetAge,
     stage,
     progress,
     resultImage,
@@ -38,7 +38,7 @@ export default function Page() {
         <div className="flex flex-col gap-2">
           <h1 className="font-heading text-balance text-3xl sm:text-4xl">Mira cómo cambiarías con la edad</h1>
           <p className="max-w-2xl text-pretty text-sm leading-relaxed text-muted-foreground">
-            Toma una foto o sube una imagen, elige cuántos años envejecer o rejuvenecer, y genera una comparación
+            Toma una foto o sube una imagen, elige la edad a la que quieres transformarte, y genera una comparación
             visual junto con un video de transición.
           </p>
         </div>
@@ -61,7 +61,7 @@ export default function Page() {
 
           <section className="flex flex-col gap-5 rounded-lg border border-border bg-card p-4 sm:p-5">
             <h2 className="font-heading text-lg">2. Ajusta el parámetro</h2>
-            <AgeSlider value={ageShift} onChange={setAgeShift} disabled={isBusy} />
+            <AgeSlider value={targetAge} onChange={setTargetAge} disabled={isBusy} />
 
             <Button
               onClick={startTransform}
@@ -91,14 +91,14 @@ export default function Page() {
               <ResultPanel
                 sourceImage={sourceImage}
                 resultImage={resultImage}
-                ageShift={ageShift}
+                targetAge={targetAge}
                 simulated={simulated}
               />
             </div>
             <VideoPanel
               sourceImage={sourceImage}
               resultImage={resultImage}
-              afterFilter={simulated ? getSimulatedFilter(ageShift) : "none"}
+              afterFilter={simulated ? getSimulatedFilter(targetAge) : "none"}
             />
           </section>
         )}

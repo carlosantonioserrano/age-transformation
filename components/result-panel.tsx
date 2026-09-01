@@ -10,13 +10,13 @@ import { getSimulatedFilter, downloadComparisonImage } from "@/lib/image-utils"
 interface ResultPanelProps {
   sourceImage: string
   resultImage: string
-  ageShift: number
+  targetAge: number
   simulated: boolean
 }
 
-export function ResultPanel({ sourceImage, resultImage, ageShift, simulated }: ResultPanelProps) {
+export function ResultPanel({ sourceImage, resultImage, targetAge, simulated }: ResultPanelProps) {
   const [downloading, setDownloading] = useState(false)
-  const afterFilter = simulated ? getSimulatedFilter(ageShift) : "none"
+  const afterFilter = simulated ? getSimulatedFilter(targetAge) : "none"
 
   const handleDownload = async () => {
     setDownloading(true)
@@ -43,7 +43,8 @@ export function ResultPanel({ sourceImage, resultImage, ageShift, simulated }: R
 
       {simulated && (
         <p className="text-xs leading-relaxed text-muted-foreground">
-          La transformación se ejecuta con el modelo de edad configurado en el servidor.
+          No hay una clave de proveedor de IA configurada, así que este resultado es un placeholder visual generado
+          en el cliente. Conecta una API de transformación de edad (p. ej. Replicate) para obtener resultados reales.
         </p>
       )}
 
