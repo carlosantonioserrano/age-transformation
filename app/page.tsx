@@ -1,6 +1,6 @@
 "use client"
 
-import { AlertTriangle, Wand2 } from "lucide-react"
+import { AlertTriangle, ShieldCheck, Wand2 } from "lucide-react"
 import { SiteHeader } from "@/components/site-header"
 import { WebcamCapture } from "@/components/webcam-capture"
 import { AgeSlider } from "@/components/age-slider"
@@ -46,6 +46,16 @@ export default function Page() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1fr]">
           <section className="flex flex-col gap-5 rounded-lg border border-border bg-card p-4 sm:p-5">
             <h2 className="font-heading text-lg">1. Captura tu foto</h2>
+
+            <Alert className="gap-1.5">
+              <ShieldCheck className="size-4" aria-hidden="true" />
+              <AlertDescription className="text-xs leading-relaxed text-muted-foreground">
+                Tu foto se envía únicamente a Google Gemini para generar la transformación de edad; no se guarda de
+                forma permanente en este servicio ni se usa con otro fin. El video de comparación se genera en tu
+                propio navegador, sin enviarse a ningún servidor.
+              </AlertDescription>
+            </Alert>
+
             <WebcamCapture
               image={sourceImage}
               onCapture={(img) => {

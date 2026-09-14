@@ -22,16 +22,31 @@ export function WebcamCapture({ image, onCapture, onReset }: WebcamCaptureProps)
     if (screenshot) onCapture(screenshot)
   }, [onCapture])
 
+  const [uploadError, setUploadError] = useState<string | null>(null)
+
   const handleFileUpload = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0]
+      event.target.value = ""
       if (!file) return
+
+      if (!file.type.startsWith("image/")) {
+        setUploadError("Ese archivo no es una imagen válida.")
+        return
+      }
+      const MAX_SIZE_MB = 10
+      if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+        setUploadError(`La imagen supera el límite de ${MAX_SIZE_MB} MB.`)
+        return
+      }
+
+      setUploadError(null)
       const reader = new FileReader()
       reader.onload = () => {
         if (typeof reader.result === "string") onCapture(reader.result)
       }
+      reader.onerror = () => setUploadError("No se pudo leer el archivo.")
       reader.readAsDataURL(file)
-      event.target.value = ""
     },
     [onCapture],
   )
@@ -85,6 +100,7 @@ export function WebcamCapture({ image, onCapture, onReset }: WebcamCaptureProps)
           Subir imagen local
         </Button>
       </div>
+      {uploadError && <p className="text-xs text-destructive">{uploadError}</p>}
       <input
         ref={fileInputRef}
         type="file"

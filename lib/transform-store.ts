@@ -12,7 +12,29 @@ export const jobStore: Map<string, TransformJob> =
 
 globalForJobs.__transformJobs = jobStore
 
+// Cuánto tiempo se conserva un job en memoria antes de poder ser barrido.
+// Con Gemini el job se resuelve en la misma llamada, así que el frontend
+// solo necesita leerlo una o dos veces justo después de crearlo; 15 minutos
+// es de sobra y evita que jobStore crezca sin límite en la RAM del proceso.
+const JOB_TTL_MS = 15 * 60 * 1000
+
+/**
+ * Borra del Map cualquier job más viejo que JOB_TTL_MS. Se llama de forma
+ * "oportunista" cada vez que se crea un job nuevo (ver createJobId), así no
+ * hace falta un setInterval en segundo plano ni preocuparse por duplicados
+ * al recargar el módulo en desarrollo.
+ */
+export function sweepExpiredJobs() {
+  const now = Date.now()
+  for (const [id, job] of jobStore) {
+    if (now - job.createdAt > JOB_TTL_MS) {
+      jobStore.delete(id)
+    }
+  }
+}
+
 export function createJobId() {
+  sweepExpiredJobs()
   return `job_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
 }
 
