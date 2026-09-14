@@ -19,7 +19,7 @@ export function AgeSlider({ value, onChange, disabled }: AgeSliderProps) {
         value={[value]}
         min={1}
         max={100}
-        step={5}
+        step={1}
         disabled={disabled}
         onValueChange={(v) => onChange(Array.isArray(v) ? v[0] : v)}
         aria-label="Edad de destino en años"

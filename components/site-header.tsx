@@ -1,4 +1,5 @@
 import { Sparkles } from "lucide-react"
+import { ThemeSwitcher } from "@/components/theme-switcher"
 
 export function SiteHeader() {
   return (
@@ -13,7 +14,10 @@ export function SiteHeader() {
             <span className="font-mono text-[11px] text-muted-foreground">simulador de edad · IA</span>
           </div>
         </div>
-        <span className="hidden font-mono text-xs text-muted-foreground sm:inline">v0.1 · demo</span>
+        <div className="flex items-center gap-4">
+          <ThemeSwitcher />
+          <span className="hidden font-mono text-xs text-muted-foreground sm:inline">v0.1 · demo</span>
+        </div>
       </div>
     </header>
   )
