@@ -11,8 +11,6 @@ export interface TransformJob {
   error?: string
   createdAt: number
   simulated: boolean
-  /** Replicate prediction id, present only for real (non-simulated) jobs. */
-  externalId?: string
 }
 
 export interface StartTransformRequest {

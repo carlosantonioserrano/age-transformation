@@ -44,7 +44,7 @@ export function ResultPanel({ sourceImage, resultImage, targetAge, simulated }: 
       {simulated && (
         <p className="text-xs leading-relaxed text-muted-foreground">
           No hay una clave de proveedor de IA configurada, así que este resultado es un placeholder visual generado
-          en el cliente. Conecta una API de transformación de edad (p. ej. Replicate) para obtener resultados reales.
+          en el cliente. Conecta una API de transformación de edad (p. ej. Gemini / nano banana) para obtener resultados reales.
         </p>
       )}
 

@@ -26,7 +26,7 @@ const MOCK_STEPS = [
 /**
  * Simulates an async AI transformation job. Advances the job through
  * queued -> processing -> succeeded over ~3 seconds, mirroring the shape
- * of a real Replicate/Fal.ai polling flow so the frontend never needs to
+ * of a real provider job so the frontend never needs to
  * change when a real provider is wired in.
  */
 export function runMockJob(jobId: string) {
@@ -48,12 +48,12 @@ export function runMockJob(jobId: string) {
 }
 
 export function isProviderConfigured() {
-  return Boolean(process.env.REPLICATE_API_KEY || process.env.FAL_KEY)
+  return Boolean(process.env.GEMINI_API_KEY)
 }
 
 /**
- * Marks a job as failed and stores the error message, used by the real
- * Replicate polling path when a prediction errors out or is canceled.
+ * Marks a job as failed and stores the error message. Available for any
+ * provider-integration path (e.g. Gemini) to use when a request errors out.
  */
 export function failJob(jobId: string, message: string) {
   const job = jobStore.get(jobId)

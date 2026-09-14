@@ -4,16 +4,14 @@ import type { StartTransformRequest, StartTransformResponse, TransformJob } from
 
 export const maxDuration = 30
 
-// Identity-preserving age-transformation via Flux Kontext Pro (Black Forest
-// Labs), an instruction-guided image editing model. This replaced the
-// yuval-alaluf/sam model, which frequently failed to preserve the subject's
-// identity (and sometimes even apparent gender) because it reconstructs the
-// whole face from a StyleGAN latent instead of editing the original pixels.
-//
-// Flux Kontext Pro is an "official model" on Replicate, so it's called via
-// POST /v1/models/{owner}/{name}/predictions and does NOT take a `version`
-// field (unlike community models such as SAM).
-const FLUX_KONTEXT_MODEL_ENDPOINT = "https://api.replicate.com/v1/models/black-forest-labs/flux-kontext-pro/predictions"
+// Identity-preserving age-transformation via Gemini 2.5 Flash Image
+// ("nano banana"), Google's instruction-guided image editing model. This
+// replaced Replicate/Flux Kontext Pro. Unlike Replicate, the Gemini API is
+// synchronous: a single generateContent call returns the edited image
+// directly, so there's no external job id to poll — we just run the call
+// inside the POST handler and store the finished result right away.
+const GEMINI_MODEL_ENDPOINT =
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent"
 
 function buildAgeTransformPrompt(targetAge: number): string {
   return (
@@ -32,39 +30,70 @@ function buildAgeTransformPrompt(targetAge: number): string {
   )
 }
 
-async function startReplicateJob(image: string, targetAge: number): Promise<string | null> {
-  const token = process.env.REPLICATE_API_KEY
-  if (!token) return null
+/** Splits a `data:image/png;base64,AAAA...` URL into its mime type and raw base64 payload. */
+function parseDataUrl(dataUrl: string): { mimeType: string; data: string } | null {
+  const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(dataUrl)
+  if (!match) return null
+  return { mimeType: match[1], data: match[2] }
+}
+
+/**
+ * Calls Gemini 2.5 Flash Image and returns the edited photo as a
+ * `data:` URL, or null if the key is missing, the request fails, or the
+ * model didn't return an image part.
+ */
+async function runGeminiTransform(image: string, targetAge: number): Promise<string | null> {
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) return null
+
+  const parsed = parseDataUrl(image)
+  if (!parsed) {
+    console.error("Gemini: la imagen de origen no tiene el formato data URL esperado.")
+    return null
+  }
 
   try {
-    const response = await fetch(FLUX_KONTEXT_MODEL_ENDPOINT, {
+    const response = await fetch(GEMINI_MODEL_ENDPOINT, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
-        Prefer: "wait=0", // return immediately with status "starting"; we poll ourselves
+        "x-goog-api-key": apiKey,
       },
       body: JSON.stringify({
-        input: {
-          prompt: buildAgeTransformPrompt(targetAge),
-          input_image: image,
-          aspect_ratio: "match_input_image",
-          output_format: "png",
-          safety_tolerance: 2, // 2 is the max allowed by Replicate when an input image is used
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { inlineData: { mimeType: parsed.mimeType, data: parsed.data } },
+              { text: buildAgeTransformPrompt(targetAge) },
+            ],
+          },
+        ],
+        generationConfig: {
+          responseModalities: ["TEXT", "IMAGE"],
         },
       }),
     })
 
     if (!response.ok) {
       const detail = await response.text().catch(() => "")
-      console.error("Replicate: fallo al crear la predicción", response.status, detail)
+      console.error("Gemini: fallo al generar la imagen", response.status, detail)
       return null
     }
 
     const data = await response.json()
-    return data?.id ?? null
+    const parts = data?.candidates?.[0]?.content?.parts ?? []
+    const imagePart = parts.find((part: { inlineData?: { data?: string; mimeType?: string } }) => part.inlineData?.data)
+
+    if (!imagePart?.inlineData?.data) {
+      console.error("Gemini: la respuesta no incluyó ninguna imagen.")
+      return null
+    }
+
+    const outMimeType = imagePart.inlineData.mimeType ?? "image/png"
+    return `data:${outMimeType};base64,${imagePart.inlineData.data}`
   } catch (err) {
-    console.error("Replicate: error de red al crear la predicción", err)
+    console.error("Gemini: error de red al generar la imagen", err)
     return null
   }
 }
@@ -94,21 +123,25 @@ export async function POST(req: NextRequest) {
   let usingRealProvider = false
 
   if (providerConfigured) {
-    const externalId = await startReplicateJob(body.image, targetAge)
-    if (externalId) {
-      job.status = "processing"
-      job.progress = 10
+    job.status = "processing"
+    job.progress = 40
+    jobStore.set(jobId, job)
+
+    const resultImage = await runGeminiTransform(body.image, targetAge)
+    if (resultImage) {
+      job.status = "succeeded"
+      job.progress = 100
       job.simulated = false
-      job.externalId = externalId
+      job.resultImage = resultImage
       jobStore.set(jobId, job)
       usingRealProvider = true
-      // The GET /api/transform/[jobId] route polls Replicate directly using
-      // `externalId` and updates this job's status/resultImage as it advances.
+      // Gemini responde en la misma llamada, así que el job ya queda
+      // resuelto aquí. GET /api/transform/[jobId] solo lee este estado.
     }
   }
 
-  // Only fall back to the simulated pipeline when there is no real provider
-  // job running (no key configured, or Replicate failed to accept the job).
+  // Only fall back to the simulated pipeline when the real provider didn't
+  // produce a result (no key configured, or Gemini failed/errored).
   if (!usingRealProvider) {
     runMockJob(jobId)
   }
