@@ -59,21 +59,27 @@ function applyAccentHue(hue: number) {
  */
 function applyBackgroundHue(hue: number) {
   const root = document.documentElement.style
+  const bg = `oklch(0.18 0.07 ${hue})`
 
-  root.setProperty("--background", `oklch(0.16 0.025 ${hue})`)
-  root.setProperty("--foreground", `oklch(0.95 0.008 ${hue})`)
-  root.setProperty("--card", `oklch(0.21 0.028 ${hue})`)
-  root.setProperty("--card-foreground", `oklch(0.95 0.008 ${hue})`)
-  root.setProperty("--popover", `oklch(0.21 0.028 ${hue})`)
-  root.setProperty("--popover-foreground", `oklch(0.95 0.008 ${hue})`)
-  root.setProperty("--secondary", `oklch(0.27 0.03 ${hue})`)
-  root.setProperty("--secondary-foreground", `oklch(0.95 0.008 ${hue})`)
-  root.setProperty("--muted", `oklch(0.24 0.028 ${hue})`)
-  root.setProperty("--muted-foreground", `oklch(0.65 0.03 ${hue})`)
-  root.setProperty("--sidebar", `oklch(0.19 0.026 ${hue})`)
-  root.setProperty("--sidebar-foreground", `oklch(0.95 0.008 ${hue})`)
-  root.setProperty("--sidebar-accent", `oklch(0.27 0.03 ${hue})`)
-  root.setProperty("--sidebar-accent-foreground", `oklch(0.95 0.008 ${hue})`)
+  root.setProperty("--background", bg)
+  root.setProperty("--foreground", `oklch(0.96 0.01 ${hue})`)
+  root.setProperty("--card", `oklch(0.23 0.08 ${hue})`)
+  root.setProperty("--card-foreground", `oklch(0.96 0.01 ${hue})`)
+  root.setProperty("--popover", `oklch(0.23 0.08 ${hue})`)
+  root.setProperty("--popover-foreground", `oklch(0.96 0.01 ${hue})`)
+  root.setProperty("--secondary", `oklch(0.28 0.08 ${hue})`)
+  root.setProperty("--secondary-foreground", `oklch(0.96 0.01 ${hue})`)
+  root.setProperty("--muted", `oklch(0.25 0.07 ${hue})`)
+  root.setProperty("--muted-foreground", `oklch(0.68 0.05 ${hue})`)
+  root.setProperty("--sidebar", `oklch(0.21 0.07 ${hue})`)
+  root.setProperty("--sidebar-foreground", `oklch(0.96 0.01 ${hue})`)
+  root.setProperty("--sidebar-accent", `oklch(0.28 0.08 ${hue})`)
+  root.setProperty("--sidebar-accent-foreground", `oklch(0.96 0.01 ${hue})`)
+
+  // Respaldo directo: además de la variable CSS (que ya alimenta las clases
+  // bg-background de <html>/<body>/<main>), pintamos el body directamente
+  // por si algún navegador o build cachea la utilidad de forma distinta.
+  document.body.style.backgroundColor = bg
 }
 
 export function ThemeSwitcher() {
