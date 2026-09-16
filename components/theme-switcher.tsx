@@ -11,24 +11,34 @@ const DEFAULT_ACCENT_COLOR = "#e0a239" // aproximación del ámbar por defecto d
 const DEFAULT_MAIN_BG_COLOR = "#241f1a" // aproximación del fondo general (main) por defecto
 const DEFAULT_CARD_BG_COLOR = "#332c24" // aproximación del fondo de tarjetas/divs por defecto
 
-/** Convierte un color hex (#rrggbb) a su matiz (hue) en grados, 0-360. */
-function hexToHue(hex: string): number {
+/**
+ * Convierte un color hex (#rrggbb) a matiz (hue, 0-360) y saturación (0-1),
+ * usando la fórmula estándar de HSL. La saturación es clave: sin ella, un
+ * blanco/gris/negro (que no tienen matiz real) caería siempre en "rojo" por
+ * defecto y se vería con un tinte rojizo no deseado. Al escalar el color
+ * aplicado por la saturación real de lo elegido, blanco/gris/negro producen
+ * un resultado neutro de verdad, y los colores vivos se aplican con fuerza.
+ */
+function hexToHueSat(hex: string): { hue: number; sat: number } {
   const r = Number.parseInt(hex.slice(1, 3), 16) / 255
   const g = Number.parseInt(hex.slice(3, 5), 16) / 255
   const b = Number.parseInt(hex.slice(5, 7), 16) / 255
   const max = Math.max(r, g, b)
   const min = Math.min(r, g, b)
   const d = max - min
-  if (d === 0) return 0
+  const l = (max + min) / 2
+
+  if (d === 0) return { hue: 0, sat: 0 }
 
   let h: number
   if (max === r) h = ((g - b) / d) % 6
   else if (max === g) h = (b - r) / d + 2
   else h = (r - g) / d + 4
-
   h *= 60
   if (h < 0) h += 360
-  return h
+
+  const sat = d / (1 - Math.abs(2 * l - 1))
+  return { hue: h, sat: Math.min(1, sat) }
 }
 
 /**
@@ -37,20 +47,22 @@ function hexToHue(hex: string): number {
  * gráficos). El brillo/contraste de cada variable queda fijo (ya calibrado
  * para verse bien), solo cambia el tono.
  */
-function applyAccentHue(hue: number) {
+function applyAccentHue(hue: number, sat: number) {
   const root = document.documentElement.style
   const accentHue = (hue + 130) % 360
+  const c1 = 0.15 * sat
+  const c2 = 0.1 * sat
 
-  root.setProperty("--primary", `oklch(0.74 0.15 ${hue})`)
-  root.setProperty("--primary-foreground", `oklch(0.15 0.02 ${hue})`)
-  root.setProperty("--accent", `oklch(0.68 0.1 ${accentHue})`)
-  root.setProperty("--accent-foreground", `oklch(0.14 0.02 ${accentHue})`)
-  root.setProperty("--ring", `oklch(0.74 0.15 ${hue} / 0.5)`)
-  root.setProperty("--chart-1", `oklch(0.74 0.15 ${hue})`)
-  root.setProperty("--chart-2", `oklch(0.68 0.1 ${accentHue})`)
-  root.setProperty("--sidebar-primary", `oklch(0.74 0.15 ${hue})`)
-  root.setProperty("--sidebar-primary-foreground", `oklch(0.15 0.02 ${hue})`)
-  root.setProperty("--sidebar-ring", `oklch(0.74 0.15 ${hue} / 0.5)`)
+  root.setProperty("--primary", `oklch(0.74 ${c1} ${hue})`)
+  root.setProperty("--primary-foreground", `oklch(0.15 ${0.02 * sat} ${hue})`)
+  root.setProperty("--accent", `oklch(0.68 ${c2} ${accentHue})`)
+  root.setProperty("--accent-foreground", `oklch(0.14 ${0.02 * sat} ${accentHue})`)
+  root.setProperty("--ring", `oklch(0.74 ${c1} ${hue} / 0.5)`)
+  root.setProperty("--chart-1", `oklch(0.74 ${c1} ${hue})`)
+  root.setProperty("--chart-2", `oklch(0.68 ${c2} ${accentHue})`)
+  root.setProperty("--sidebar-primary", `oklch(0.74 ${c1} ${hue})`)
+  root.setProperty("--sidebar-primary-foreground", `oklch(0.15 ${0.02 * sat} ${hue})`)
+  root.setProperty("--sidebar-ring", `oklch(0.74 ${c1} ${hue} / 0.5)`)
 }
 
 /**
@@ -58,14 +70,15 @@ function applyAccentHue(hue: number) {
  * superficie más externa: el <main> / <body> de toda la página (y su texto).
  * No toca tarjetas ni contenedores internos — eso lo maneja applyCardHue.
  */
-function applyMainBackgroundHue(hue: number) {
+function applyMainBackgroundHue(hue: number, sat: number) {
   const root = document.documentElement.style
-  const bg = `oklch(0.18 0.07 ${hue})`
+  const c = 0.07 * sat
+  const bg = `oklch(0.18 ${c} ${hue})`
 
   root.setProperty("--background", bg)
-  root.setProperty("--foreground", `oklch(0.96 0.01 ${hue})`)
-  root.setProperty("--sidebar", `oklch(0.21 0.07 ${hue})`)
-  root.setProperty("--sidebar-foreground", `oklch(0.96 0.01 ${hue})`)
+  root.setProperty("--foreground", `oklch(0.96 ${0.01 * sat} ${hue})`)
+  root.setProperty("--sidebar", `oklch(0.21 ${c} ${hue})`)
+  root.setProperty("--sidebar-foreground", `oklch(0.96 ${0.01 * sat} ${hue})`)
 
   // Respaldo directo: además de la variable CSS (que ya alimenta bg-background
   // en <html>/<body>/<main>), pintamos el body directamente por si algún
@@ -79,19 +92,21 @@ function applyMainBackgroundHue(hue: number) {
  * secundarios/muted y el acento de la barra lateral. No toca el fondo
  * general de la página — eso lo maneja applyMainBackgroundHue.
  */
-function applyCardBackgroundHue(hue: number) {
+function applyCardBackgroundHue(hue: number, sat: number) {
   const root = document.documentElement.style
+  const c = 0.08 * sat
+  const cMuted = 0.07 * sat
 
-  root.setProperty("--card", `oklch(0.23 0.08 ${hue})`)
-  root.setProperty("--card-foreground", `oklch(0.96 0.01 ${hue})`)
-  root.setProperty("--popover", `oklch(0.23 0.08 ${hue})`)
-  root.setProperty("--popover-foreground", `oklch(0.96 0.01 ${hue})`)
-  root.setProperty("--secondary", `oklch(0.28 0.08 ${hue})`)
-  root.setProperty("--secondary-foreground", `oklch(0.96 0.01 ${hue})`)
-  root.setProperty("--muted", `oklch(0.25 0.07 ${hue})`)
-  root.setProperty("--muted-foreground", `oklch(0.68 0.05 ${hue})`)
-  root.setProperty("--sidebar-accent", `oklch(0.28 0.08 ${hue})`)
-  root.setProperty("--sidebar-accent-foreground", `oklch(0.96 0.01 ${hue})`)
+  root.setProperty("--card", `oklch(0.23 ${c} ${hue})`)
+  root.setProperty("--card-foreground", `oklch(0.96 ${0.01 * sat} ${hue})`)
+  root.setProperty("--popover", `oklch(0.23 ${c} ${hue})`)
+  root.setProperty("--popover-foreground", `oklch(0.96 ${0.01 * sat} ${hue})`)
+  root.setProperty("--secondary", `oklch(0.28 ${c} ${hue})`)
+  root.setProperty("--secondary-foreground", `oklch(0.96 ${0.01 * sat} ${hue})`)
+  root.setProperty("--muted", `oklch(0.25 ${cMuted} ${hue})`)
+  root.setProperty("--muted-foreground", `oklch(0.68 ${0.05 * sat} ${hue})`)
+  root.setProperty("--sidebar-accent", `oklch(0.28 ${c} ${hue})`)
+  root.setProperty("--sidebar-accent-foreground", `oklch(0.96 ${0.01 * sat} ${hue})`)
 }
 
 type Swatch = {
@@ -100,7 +115,7 @@ type Swatch = {
   icon: typeof Palette
   color: string
   setColor: (hex: string) => void
-  apply: (hue: number) => void
+  apply: (hue: number, sat: number) => void
   storageKey: string
 }
 
@@ -119,17 +134,20 @@ export function ThemeSwitcher() {
     const savedAccent = window.localStorage.getItem(ACCENT_STORAGE_KEY)
     if (savedAccent) {
       setAccentColor(savedAccent)
-      applyAccentHue(hexToHue(savedAccent))
+      const { hue, sat } = hexToHueSat(savedAccent)
+      applyAccentHue(hue, sat)
     }
     const savedMainBg = window.localStorage.getItem(MAIN_BG_STORAGE_KEY)
     if (savedMainBg) {
       setMainBgColor(savedMainBg)
-      applyMainBackgroundHue(hexToHue(savedMainBg))
+      const { hue, sat } = hexToHueSat(savedMainBg)
+      applyMainBackgroundHue(hue, sat)
     }
     const savedCardBg = window.localStorage.getItem(CARD_BG_STORAGE_KEY)
     if (savedCardBg) {
       setCardBgColor(savedCardBg)
-      applyCardBackgroundHue(hexToHue(savedCardBg))
+      const { hue, sat } = hexToHueSat(savedCardBg)
+      applyCardBackgroundHue(hue, sat)
     }
   }, [])
 
@@ -172,7 +190,8 @@ export function ThemeSwitcher() {
   const handleChange = (swatch: Swatch) => (event: React.ChangeEvent<HTMLInputElement>) => {
     const hex = event.target.value
     swatch.setColor(hex)
-    swatch.apply(hexToHue(hex))
+    const { hue, sat } = hexToHueSat(hex)
+    swatch.apply(hue, sat)
     window.localStorage.setItem(swatch.storageKey, hex)
   }
 
