@@ -1,12 +1,15 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Palette, PaintBucket } from "lucide-react"
+import { Palette, PaintBucket, Layers } from "lucide-react"
 
 const ACCENT_STORAGE_KEY = "agelab-theme-accent"
-const BACKGROUND_STORAGE_KEY = "agelab-theme-background"
+const MAIN_BG_STORAGE_KEY = "agelab-theme-main-bg"
+const CARD_BG_STORAGE_KEY = "agelab-theme-card-bg"
+
 const DEFAULT_ACCENT_COLOR = "#e0a239" // aproximación del ámbar por defecto de la app
-const DEFAULT_BACKGROUND_COLOR = "#2b2620" // aproximación del fondo oscuro por defecto
+const DEFAULT_MAIN_BG_COLOR = "#241f1a" // aproximación del fondo general (main) por defecto
+const DEFAULT_CARD_BG_COLOR = "#332c24" // aproximación del fondo de tarjetas/divs por defecto
 
 /** Convierte un color hex (#rrggbb) a su matiz (hue) en grados, 0-360. */
 function hexToHue(hex: string): number {
@@ -31,8 +34,8 @@ function hexToHue(hex: string): number {
 /**
  * A partir del matiz elegido para BOTONES/ACENTOS, calcula y aplica las
  * variables de color de primary/accent (botones, enlaces, anillos de foco,
- * gráficos, sidebar). El brillo/contraste de cada variable queda fijo (ya
- * calibrado para verse bien), solo cambia el tono.
+ * gráficos). El brillo/contraste de cada variable queda fijo (ya calibrado
+ * para verse bien), solo cambia el tono.
  */
 function applyAccentHue(hue: number) {
   const root = document.documentElement.style
@@ -51,18 +54,34 @@ function applyAccentHue(hue: number) {
 }
 
 /**
- * A partir del matiz elegido para el FONDO, calcula y aplica las superficies
- * oscuras de la app (fondo general, tarjetas, popovers, sidebar) y sus
- * textos. La luminosidad se mantiene baja (para seguir siendo un tema
- * oscuro) y el texto se mantiene casi blanco con muy poco tinte, así el
- * contraste de lectura nunca se ve comprometido sin importar el color.
+ * A partir del matiz elegido para el FONDO GENERAL, colorea únicamente la
+ * superficie más externa: el <main> / <body> de toda la página (y su texto).
+ * No toca tarjetas ni contenedores internos — eso lo maneja applyCardHue.
  */
-function applyBackgroundHue(hue: number) {
+function applyMainBackgroundHue(hue: number) {
   const root = document.documentElement.style
   const bg = `oklch(0.18 0.07 ${hue})`
 
   root.setProperty("--background", bg)
   root.setProperty("--foreground", `oklch(0.96 0.01 ${hue})`)
+  root.setProperty("--sidebar", `oklch(0.21 0.07 ${hue})`)
+  root.setProperty("--sidebar-foreground", `oklch(0.96 0.01 ${hue})`)
+
+  // Respaldo directo: además de la variable CSS (que ya alimenta bg-background
+  // en <html>/<body>/<main>), pintamos el body directamente por si algún
+  // navegador o build cachea la utilidad de forma distinta.
+  document.body.style.backgroundColor = bg
+}
+
+/**
+ * A partir del matiz elegido para TARJETAS/DIVS, colorea los contenedores
+ * internos: las cajas de cada sección (bg-card), popovers, fondos
+ * secundarios/muted y el acento de la barra lateral. No toca el fondo
+ * general de la página — eso lo maneja applyMainBackgroundHue.
+ */
+function applyCardBackgroundHue(hue: number) {
+  const root = document.documentElement.style
+
   root.setProperty("--card", `oklch(0.23 0.08 ${hue})`)
   root.setProperty("--card-foreground", `oklch(0.96 0.01 ${hue})`)
   root.setProperty("--popover", `oklch(0.23 0.08 ${hue})`)
@@ -71,93 +90,119 @@ function applyBackgroundHue(hue: number) {
   root.setProperty("--secondary-foreground", `oklch(0.96 0.01 ${hue})`)
   root.setProperty("--muted", `oklch(0.25 0.07 ${hue})`)
   root.setProperty("--muted-foreground", `oklch(0.68 0.05 ${hue})`)
-  root.setProperty("--sidebar", `oklch(0.21 0.07 ${hue})`)
-  root.setProperty("--sidebar-foreground", `oklch(0.96 0.01 ${hue})`)
   root.setProperty("--sidebar-accent", `oklch(0.28 0.08 ${hue})`)
   root.setProperty("--sidebar-accent-foreground", `oklch(0.96 0.01 ${hue})`)
+}
 
-  // Respaldo directo: además de la variable CSS (que ya alimenta las clases
-  // bg-background de <html>/<body>/<main>), pintamos el body directamente
-  // por si algún navegador o build cachea la utilidad de forma distinta.
-  document.body.style.backgroundColor = bg
+type Swatch = {
+  key: string
+  label: string
+  icon: typeof Palette
+  color: string
+  setColor: (hex: string) => void
+  apply: (hue: number) => void
+  storageKey: string
 }
 
 export function ThemeSwitcher() {
   const [accentColor, setAccentColor] = useState(DEFAULT_ACCENT_COLOR)
-  const [backgroundColor, setBackgroundColor] = useState(DEFAULT_BACKGROUND_COLOR)
-  const accentInputRef = useRef<HTMLInputElement>(null)
-  const backgroundInputRef = useRef<HTMLInputElement>(null)
+  const [mainBgColor, setMainBgColor] = useState(DEFAULT_MAIN_BG_COLOR)
+  const [cardBgColor, setCardBgColor] = useState(DEFAULT_CARD_BG_COLOR)
 
-  // Al montar, recupera los colores guardados del navegador y los aplica
-  // (si no hay nada guardado, se queda con el tema por defecto de la app).
+  const accentInputRef = useRef<HTMLInputElement>(null)
+  const mainBgInputRef = useRef<HTMLInputElement>(null)
+  const cardBgInputRef = useRef<HTMLInputElement>(null)
+
+  // Al montar, recupera los 3 colores guardados del navegador y los aplica
+  // (si no hay nada guardado para alguno, se queda con el valor por defecto).
   useEffect(() => {
     const savedAccent = window.localStorage.getItem(ACCENT_STORAGE_KEY)
     if (savedAccent) {
       setAccentColor(savedAccent)
       applyAccentHue(hexToHue(savedAccent))
     }
-    const savedBackground = window.localStorage.getItem(BACKGROUND_STORAGE_KEY)
-    if (savedBackground) {
-      setBackgroundColor(savedBackground)
-      applyBackgroundHue(hexToHue(savedBackground))
+    const savedMainBg = window.localStorage.getItem(MAIN_BG_STORAGE_KEY)
+    if (savedMainBg) {
+      setMainBgColor(savedMainBg)
+      applyMainBackgroundHue(hexToHue(savedMainBg))
+    }
+    const savedCardBg = window.localStorage.getItem(CARD_BG_STORAGE_KEY)
+    if (savedCardBg) {
+      setCardBgColor(savedCardBg)
+      applyCardBackgroundHue(hexToHue(savedCardBg))
     }
   }, [])
 
-  const handleAccentChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const hex = event.target.value
-    setAccentColor(hex)
-    applyAccentHue(hexToHue(hex))
-    window.localStorage.setItem(ACCENT_STORAGE_KEY, hex)
-  }
+  const swatches: Swatch[] = [
+    {
+      key: "accent",
+      label: "Color de botones y acentos",
+      icon: Palette,
+      color: accentColor,
+      setColor: setAccentColor,
+      apply: applyAccentHue,
+      storageKey: ACCENT_STORAGE_KEY,
+    },
+    {
+      key: "main-bg",
+      label: "Color de fondo general",
+      icon: PaintBucket,
+      color: mainBgColor,
+      setColor: setMainBgColor,
+      apply: applyMainBackgroundHue,
+      storageKey: MAIN_BG_STORAGE_KEY,
+    },
+    {
+      key: "card-bg",
+      label: "Color de fondo de las tarjetas",
+      icon: Layers,
+      color: cardBgColor,
+      setColor: setCardBgColor,
+      apply: applyCardBackgroundHue,
+      storageKey: CARD_BG_STORAGE_KEY,
+    },
+  ]
 
-  const handleBackgroundChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const refs = {
+    accent: accentInputRef,
+    "main-bg": mainBgInputRef,
+    "card-bg": cardBgInputRef,
+  } as const
+
+  const handleChange = (swatch: Swatch) => (event: React.ChangeEvent<HTMLInputElement>) => {
     const hex = event.target.value
-    setBackgroundColor(hex)
-    applyBackgroundHue(hexToHue(hex))
-    window.localStorage.setItem(BACKGROUND_STORAGE_KEY, hex)
+    swatch.setColor(hex)
+    swatch.apply(hexToHue(hex))
+    window.localStorage.setItem(swatch.storageKey, hex)
   }
 
   return (
     <div className="flex items-center gap-3">
-      <div className="flex items-center gap-1.5">
-        <Palette className="size-3.5 text-muted-foreground" aria-hidden="true" />
-        <button
-          type="button"
-          onClick={() => accentInputRef.current?.click()}
-          aria-label="Elegir color de botones y acentos"
-          title="Color de botones y acentos"
-          className="size-5 rounded-full border border-border transition-transform hover:scale-110"
-          style={{ backgroundColor: accentColor }}
-        />
-        <input
-          ref={accentInputRef}
-          type="color"
-          value={accentColor}
-          onChange={handleAccentChange}
-          aria-label="Selector de color de botones y acentos"
-          className="sr-only"
-        />
-      </div>
-
-      <div className="flex items-center gap-1.5">
-        <PaintBucket className="size-3.5 text-muted-foreground" aria-hidden="true" />
-        <button
-          type="button"
-          onClick={() => backgroundInputRef.current?.click()}
-          aria-label="Elegir color de fondo"
-          title="Color de fondo"
-          className="size-5 rounded-full border border-border transition-transform hover:scale-110"
-          style={{ backgroundColor }}
-        />
-        <input
-          ref={backgroundInputRef}
-          type="color"
-          value={backgroundColor}
-          onChange={handleBackgroundChange}
-          aria-label="Selector de color de fondo"
-          className="sr-only"
-        />
-      </div>
+      {swatches.map((swatch) => {
+        const Icon = swatch.icon
+        const ref = refs[swatch.key as keyof typeof refs]
+        return (
+          <div key={swatch.key} className="flex items-center gap-1.5">
+            <Icon className="size-3.5 text-muted-foreground" aria-hidden="true" />
+            <button
+              type="button"
+              onClick={() => ref.current?.click()}
+              aria-label={swatch.label}
+              title={swatch.label}
+              className="size-5 rounded-full border border-border transition-transform hover:scale-110"
+              style={{ backgroundColor: swatch.color }}
+            />
+            <input
+              ref={ref}
+              type="color"
+              value={swatch.color}
+              onChange={handleChange(swatch)}
+              aria-label={`Selector: ${swatch.label}`}
+              className="sr-only"
+            />
+          </div>
+        )
+      })}
     </div>
   )
 }
