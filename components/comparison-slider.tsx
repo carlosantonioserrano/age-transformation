@@ -3,15 +3,24 @@
 import { useCallback, useRef, useState } from "react"
 import { GripVertical } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { ParticleOverlay } from "@/components/particle-overlay"
+import type { BackgroundThemeId } from "@/lib/particle-effects"
 
 interface ComparisonSliderProps {
   beforeImage: string
   afterImage: string
   afterFilter?: string
   className?: string
+  particleVariant?: BackgroundThemeId
 }
 
-export function ComparisonSlider({ beforeImage, afterImage, afterFilter, className }: ComparisonSliderProps) {
+export function ComparisonSlider({
+  beforeImage,
+  afterImage,
+  afterFilter,
+  className,
+  particleVariant = "none",
+}: ComparisonSliderProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState(50)
   const draggingRef = useRef(false)
@@ -96,6 +105,8 @@ export function ComparisonSlider({ beforeImage, afterImage, afterFilter, classNa
       <span className="absolute right-2 top-2 rounded-md bg-background/70 px-2 py-1 text-xs font-mono text-foreground backdrop-blur-sm">
         Después
       </span>
+
+      <ParticleOverlay variant={particleVariant} />
     </div>
   )
 }
