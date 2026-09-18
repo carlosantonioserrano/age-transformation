@@ -3,7 +3,6 @@ export type BackgroundThemeId =
   | "snow"
   | "rain"
   | "leaves"
-  | "waves"
   | "sakura"
   | "fireflies"
   | "confetti"
@@ -47,13 +46,6 @@ export const BACKGROUND_THEMES: BackgroundTheme[] = [
     label: "Otoño",
     emoji: "🍂",
     promptFragment: "a realistic autumn forest path behind the person, with fallen orange and red leaves on the ground",
-  },
-  {
-    id: "waves",
-    label: "Playa",
-    emoji: "🌊",
-    promptFragment:
-      "a realistic sunny beach behind the person, with a clear horizon and gentle ocean waves far in the distance",
   },
   {
     id: "sakura",
@@ -212,10 +204,6 @@ function makeParticle(variant: BackgroundThemeId, width: number, height: number,
         hue: 0,
         phase: randomBetween(0, Math.PI * 2),
       }
-    case "waves":
-      // Las "olas" no son partículas individuales sino unas pocas bandas
-      // horizontales; reutilizamos el mismo tipo guardando la fase en cada una.
-      return { x: 0, y: 0, vx: 0, vy: 0, size: 0, opacity: 0, rotation: 0, rotationSpeed: 0, hue: 0, phase: randomBetween(0, Math.PI * 2) }
     default:
       return { x, y, vx: 0, vy: 0, size: 0, opacity: 0, rotation: 0, rotationSpeed: 0, hue: 0, phase: 0 }
   }
@@ -235,9 +223,7 @@ export function createParticles(variant: BackgroundThemeId, width: number, heigh
             ? 70
             : variant === "fireflies"
               ? 25
-              : variant === "stars"
-                ? 90
-                : 4 // waves: 4 bandas
+              : 90 // stars
 
   return Array.from({ length: count }, () => makeParticle(variant, width, height, true))
 }
@@ -315,9 +301,6 @@ export function stepParticles(
       case "stars":
         // fijas en su lugar; solo titilan (ver drawParticles)
         p.phase += dt * p.rotationSpeed
-        break
-      case "waves":
-        p.phase += dt * 0.8
         break
     }
   }
@@ -434,25 +417,5 @@ export function drawParticles(
       }
       ctx.globalAlpha = 1
       break
-
-    case "waves": {
-      const bandHeight = height * 0.16
-      particles.forEach((p, i) => {
-        const baseY = height - bandHeight * (i + 1) * 0.8
-        ctx.beginPath()
-        ctx.moveTo(0, baseY)
-        const step = 12
-        for (let x = 0; x <= width; x += step) {
-          const y = baseY + Math.sin(x * 0.025 + p.phase + i) * 6
-          ctx.lineTo(x, y)
-        }
-        ctx.lineTo(width, height)
-        ctx.lineTo(0, height)
-        ctx.closePath()
-        ctx.fillStyle = `rgba(255,255,255,${0.05 + i * 0.03})`
-        ctx.fill()
-      })
-      break
-    }
   }
 }
