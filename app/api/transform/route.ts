@@ -3,7 +3,7 @@ import { createJobId, isProviderConfigured, jobStore, runMockJob } from "@/lib/t
 import type { StartTransformRequest, StartTransformResponse, TransformJob } from "@/lib/types"
 import { getBackgroundTheme, type BackgroundThemeId } from "@/lib/particle-effects"
 
-export const maxDuration = 30
+export const maxDuration = 60
 
 // Identity-preserving age-transformation via Gemini 2.5 Flash Image
 // ("nano banana"), Google's instruction-guided image editing model. This
@@ -22,31 +22,56 @@ function sanitizeHexColor(hex: string | undefined): string {
 
 function buildSolidColorPromptFragment(hex: string): string {
   return (
-    `Replace the background with a solid, seamless, evenly lit studio backdrop in the exact color ` +
-    `${hex} — like a professional headshot backdrop, with no gradients, no shadows, no texture, and no ` +
-    "objects of any kind, keeping the person's pose, clothing, and exact identity completely unchanged. " +
-    "Blend the lighting on the person naturally with this solid-color backdrop."
+    `a solid, seamless, evenly lit studio backdrop in the exact color ${hex} — like a professional ` +
+    "headshot backdrop, with no gradients, no shadows, no texture, and no objects of any kind"
   )
 }
 
-function buildAgeTransformPrompt(targetAge: number, background: BackgroundThemeId, backgroundColor?: string): string {
-  const basePrompt =
+/**
+ * Prompt de UN SOLO trabajo: solo cambia la edad, preservando el fondo
+ * original tal cual. Esta es la fórmula probada que siempre funcionó bien
+ * antes de agregar los fondos temáticos — se usa siempre como primer paso,
+ * sin importar el fondo elegido, para no arriesgar su fiabilidad mezclándola
+ * con otra instrucción en la misma llamada.
+ */
+function buildAgeOnlyPrompt(targetAge: number): string {
+  return (
     `Change the apparent age of the person in this photo so they look exactly ` +
     `${targetAge} years old — this may mean making them look older or younger ` +
     "than they currently appear. " +
     "Precisely preserve their exact facial identity, gender, ethnicity, face shape, " +
     "eye color, hairstyle (the general cut/style), facial expression, and any " +
-    "distinctive features (e.g. moles, freckles, scars), as well as their clothing" +
-    (background === "none" ? " and the original photo's background, pose, and lighting. " : ", and pose. ") +
+    "distinctive features (e.g. moles, freckles, scars), as well as their clothing " +
+    "and the original photo's background, pose, and lighting. " +
     "Naturally adjust only the features that change with age to match a " +
     `${targetAge}-year-old appearance: skin texture and wrinkles (adding or smoothing ` +
     "them as needed), hair color (greying or restoring its natural color), hair " +
     "thickness and hairline, and other realistic signs of aging or youthfulness. " +
     "Do not change who the person is."
+  )
+}
 
-  const backgroundFragment =
-    background === "solid" ? buildSolidColorPromptFragment(sanitizeHexColor(backgroundColor)) : getBackgroundTheme(background).promptFragment
-  return backgroundFragment ? `${basePrompt} ${backgroundFragment}` : basePrompt
+/**
+ * Prompt de UN SOLO trabajo: solo reemplaza el fondo de una foto ya
+ * transformada. Se aplica en un segundo paso, sobre el resultado de
+ * buildAgeOnlyPrompt, nunca junto con el cambio de edad — así el modelo no
+ * tiene que repartir su atención entre dos instrucciones a la vez.
+ */
+function buildBackgroundReplacePrompt(sceneDescription: string): string {
+  return (
+    `Replace ONLY the background of this photo with ${sceneDescription}. ` +
+    "The person must remain exactly as they appear in this photo — same face, exact age, expression, " +
+    "pose, and clothing, completely unchanged. The person must stay fully visible, in sharp focus, and " +
+    "entirely in the foreground: do not place any background element (such as waves, leaves, snow, " +
+    "rain, lights, or anything else) in front of, overlapping, or obscuring any part of the person. " +
+    "Only the scene behind them changes."
+  )
+}
+
+function getBackgroundSceneDescription(background: BackgroundThemeId, backgroundColor: string | undefined): string | null {
+  if (background === "solid") return buildSolidColorPromptFragment(sanitizeHexColor(backgroundColor))
+  const theme = getBackgroundTheme(background)
+  return theme.promptFragment
 }
 
 /** Splits a `data:image/png;base64,AAAA...` URL into its mime type and raw base64 payload. */
@@ -56,20 +81,8 @@ function parseDataUrl(dataUrl: string): { mimeType: string; data: string } | nul
   return { mimeType: match[1], data: match[2] }
 }
 
-/**
- * Calls Gemini 2.5 Flash Image and returns the edited photo as a
- * `data:` URL, or null if the key is missing, the request fails, or the
- * model didn't return an image part.
- */
-async function runGeminiTransform(
-  image: string,
-  targetAge: number,
-  background: BackgroundThemeId,
-  backgroundColor: string | undefined,
-): Promise<string | null> {
-  const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) return null
-
+/** Llamada genérica de un solo paso a Gemini: una imagen + un prompt, devuelve la imagen editada. */
+async function callGeminiEdit(image: string, prompt: string, apiKey: string): Promise<string | null> {
   const parsed = parseDataUrl(image)
   if (!parsed) {
     console.error("Gemini: la imagen de origen no tiene el formato data URL esperado.")
@@ -87,10 +100,7 @@ async function runGeminiTransform(
         contents: [
           {
             role: "user",
-            parts: [
-              { inlineData: { mimeType: parsed.mimeType, data: parsed.data } },
-              { text: buildAgeTransformPrompt(targetAge, background, backgroundColor) },
-            ],
+            parts: [{ inlineData: { mimeType: parsed.mimeType, data: parsed.data } }, { text: prompt }],
           },
         ],
         generationConfig: {
@@ -120,6 +130,38 @@ async function runGeminiTransform(
     console.error("Gemini: error de red al generar la imagen", err)
     return null
   }
+}
+
+/**
+ * Orquesta la transformación completa en hasta 2 pasos secuenciales:
+ *   1. Cambio de edad únicamente (prompt de un solo trabajo, el que siempre
+ *      funcionó bien).
+ *   2. Si se eligió un fondo temático, una SEGUNDA llamada que solo
+ *      reemplaza el fondo de la foto ya envejecida/rejuvenecida.
+ * Separarlo en 2 llamadas evita que el modelo tenga que repartir su
+ * atención entre "cambiar la edad" y "cambiar el fondo" en una sola
+ * instrucción, que es lo que causaba resultados inconsistentes (edad sin
+ * aplicar, o elementos del fondo tapando a la persona).
+ */
+async function runGeminiTransform(
+  image: string,
+  targetAge: number,
+  background: BackgroundThemeId,
+  backgroundColor: string | undefined,
+): Promise<string | null> {
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) return null
+
+  const agedImage = await callGeminiEdit(image, buildAgeOnlyPrompt(targetAge), apiKey)
+  if (!agedImage) return null
+
+  const sceneDescription = getBackgroundSceneDescription(background, backgroundColor)
+  if (!sceneDescription) return agedImage // "none": no hay segundo paso
+
+  const finalImage = await callGeminiEdit(agedImage, buildBackgroundReplacePrompt(sceneDescription), apiKey)
+  // Si el segundo paso falla, mejor entregar la foto con la edad ya cambiada
+  // (y el fondo original) que no entregar nada.
+  return finalImage ?? agedImage
 }
 
 export async function POST(req: NextRequest) {

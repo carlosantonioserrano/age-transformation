@@ -15,8 +15,10 @@ export interface BackgroundTheme {
   label: string
   emoji: string
   /**
-   * Fragmento que se agrega al prompt de Gemini para pedirle que coloque a
-   * la persona sobre esta escena. `null` para "Ninguno" (no se toca el
+   * Descripción de la escena (solo el sustantivo/frase, sin "Replace the
+   * background with..." ni instrucciones de preservar a la persona — eso lo
+   * arma route.ts en buildBackgroundReplacePrompt, en un segundo paso
+   * separado del cambio de edad). `null` para "Ninguno" (no se toca el
    * fondo original de la foto).
    */
   promptFragment: string | null
@@ -29,77 +31,53 @@ export const BACKGROUND_THEMES: BackgroundTheme[] = [
     label: "Nieve",
     emoji: "❄️",
     promptFragment:
-      "Replace the background with a realistic snowy winter landscape (snow-covered ground, " +
-      "snow-dusted trees, soft overcast winter light), keeping the person's pose, clothing, and " +
-      "exact identity completely unchanged. Blend the lighting and color tone on the person " +
-      "naturally with the new snowy scene.",
+      "a realistic snowy winter landscape behind the person (snow-covered ground, snow-dusted trees, " +
+      "soft overcast winter light)",
   },
   {
     id: "rain",
     label: "Lluvia",
     emoji: "🌧️",
     promptFragment:
-      "Replace the background with a realistic rainy city street at dusk (wet reflective pavement, " +
-      "gentle rain, glowing streetlights), keeping the person's pose, clothing, and exact identity " +
-      "completely unchanged. Blend the lighting and color tone on the person naturally with the new " +
-      "rainy scene.",
+      "a realistic rainy city street at dusk behind the person (wet reflective pavement, gentle rain, " +
+      "glowing streetlights)",
   },
   {
     id: "leaves",
     label: "Otoño",
     emoji: "🍂",
-    promptFragment:
-      "Replace the background with a realistic autumn forest path covered in fallen orange and red " +
-      "leaves, keeping the person's pose, clothing, and exact identity completely unchanged. Blend " +
-      "the lighting and color tone on the person naturally with the new autumn scene.",
+    promptFragment: "a realistic autumn forest path behind the person, with fallen orange and red leaves on the ground",
   },
   {
     id: "waves",
     label: "Playa",
     emoji: "🌊",
     promptFragment:
-      "Replace the background with a realistic sunny beach with a clear horizon and gentle ocean " +
-      "waves, keeping the person's pose, clothing, and exact identity completely unchanged. Blend " +
-      "the lighting and color tone on the person naturally with the new beach scene.",
+      "a realistic sunny beach behind the person, with a clear horizon and gentle ocean waves far in the distance",
   },
   {
     id: "sakura",
     label: "Sakura",
     emoji: "🌸",
-    promptFragment:
-      "Replace the background with a realistic park full of cherry blossom (sakura) trees in full " +
-      "bloom under soft spring light, keeping the person's pose, clothing, and exact identity " +
-      "completely unchanged. Blend the lighting and color tone on the person naturally with the new " +
-      "cherry blossom scene.",
+    promptFragment: "a realistic park behind the person, full of cherry blossom (sakura) trees in full bloom under soft spring light",
   },
   {
     id: "fireflies",
     label: "Luciérnagas",
     emoji: "✨",
-    promptFragment:
-      "Replace the background with a realistic magical forest clearing at night, softly lit by " +
-      "moonlight, keeping the person's pose, clothing, and exact identity completely unchanged. " +
-      "Blend the lighting and color tone on the person naturally with the new nighttime forest scene.",
+    promptFragment: "a realistic magical forest clearing behind the person at night, softly lit by moonlight",
   },
   {
     id: "confetti",
     label: "Confeti",
     emoji: "🎉",
-    promptFragment:
-      "Replace the background with a realistic festive celebration scene with warm bokeh string " +
-      "lights out of focus in the distance, keeping the person's pose, clothing, and exact identity " +
-      "completely unchanged. Blend the lighting and color tone on the person naturally with the new " +
-      "celebration scene.",
+    promptFragment: "a realistic festive celebration scene behind the person, with warm bokeh string lights out of focus in the distance",
   },
   {
     id: "stars",
     label: "Estrellas",
     emoji: "⭐",
-    promptFragment:
-      "Replace the background with a realistic clear night sky full of stars over a scenic landscape " +
-      "silhouette, softly lit by moonlight, keeping the person's pose, clothing, and exact identity " +
-      "completely unchanged. Blend the lighting and color tone on the person naturally with the new " +
-      "starry night scene.",
+    promptFragment: "a realistic clear night sky full of stars behind the person, over a scenic landscape silhouette, softly lit by moonlight",
   },
   {
     // El texto exacto del prompt se arma en el momento con el color elegido
