@@ -6,15 +6,23 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ComparisonSlider } from "@/components/comparison-slider"
 import { getSimulatedFilter, downloadComparisonImage } from "@/lib/image-utils"
+import type { BackgroundThemeId } from "@/lib/particle-effects"
 
 interface ResultPanelProps {
   sourceImage: string
   resultImage: string
   targetAge: number
   simulated: boolean
+  backgroundTheme?: BackgroundThemeId
 }
 
-export function ResultPanel({ sourceImage, resultImage, targetAge, simulated }: ResultPanelProps) {
+export function ResultPanel({
+  sourceImage,
+  resultImage,
+  targetAge,
+  simulated,
+  backgroundTheme = "none",
+}: ResultPanelProps) {
   const [downloading, setDownloading] = useState(false)
   const afterFilter = simulated ? getSimulatedFilter(targetAge) : "none"
 
@@ -39,7 +47,12 @@ export function ResultPanel({ sourceImage, resultImage, targetAge, simulated }: 
         )}
       </div>
 
-      <ComparisonSlider beforeImage={sourceImage} afterImage={resultImage} afterFilter={afterFilter} />
+      <ComparisonSlider
+        beforeImage={sourceImage}
+        afterImage={resultImage}
+        afterFilter={afterFilter}
+        particleVariant={backgroundTheme}
+      />
 
       {simulated && (
         <p className="text-xs leading-relaxed text-muted-foreground">

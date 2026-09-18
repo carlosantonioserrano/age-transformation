@@ -4,6 +4,7 @@ import { AlertTriangle, ShieldCheck, Wand2 } from "lucide-react"
 import { SiteHeader } from "@/components/site-header"
 import { WebcamCapture } from "@/components/webcam-capture"
 import { AgeSlider } from "@/components/age-slider"
+import { BackgroundThemePicker } from "@/components/background-theme-picker"
 import { StatusIndicator } from "@/components/status-indicator"
 import { ResultPanel } from "@/components/result-panel"
 import { VideoPanel } from "@/components/video-panel"
@@ -18,6 +19,10 @@ export default function Page() {
     setSourceImage,
     targetAge,
     setTargetAge,
+    backgroundTheme,
+    setBackgroundTheme,
+    backgroundColor,
+    setBackgroundColor,
     stage,
     progress,
     resultImage,
@@ -73,6 +78,14 @@ export default function Page() {
             <h2 className="font-heading text-lg">2. Ajusta el parámetro</h2>
             <AgeSlider value={targetAge} onChange={setTargetAge} disabled={isBusy} />
 
+            <BackgroundThemePicker
+              value={backgroundTheme}
+              onChange={setBackgroundTheme}
+              solidColor={backgroundColor}
+              onSolidColorChange={setBackgroundColor}
+              disabled={isBusy}
+            />
+
             <Button
               onClick={startTransform}
               disabled={!sourceImage || isBusy}
@@ -103,12 +116,14 @@ export default function Page() {
                 resultImage={resultImage}
                 targetAge={targetAge}
                 simulated={simulated}
+                backgroundTheme={backgroundTheme}
               />
             </div>
             <VideoPanel
               sourceImage={sourceImage}
               resultImage={resultImage}
               afterFilter={simulated ? getSimulatedFilter(targetAge) : "none"}
+              backgroundTheme={backgroundTheme}
             />
           </section>
         )}

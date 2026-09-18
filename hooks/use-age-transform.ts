@@ -3,12 +3,15 @@
 import { useCallback, useRef, useState } from "react"
 import type { PipelineStage } from "@/components/status-indicator"
 import type { JobStatusResponse, StartTransformResponse } from "@/lib/types"
+import type { BackgroundThemeId } from "@/lib/particle-effects"
 
 const POLL_INTERVAL_MS = 500
 
 export function useAgeTransform() {
   const [sourceImage, setSourceImage] = useState<string | null>(null)
   const [targetAge, setTargetAge] = useState(50)
+  const [backgroundTheme, setBackgroundTheme] = useState<BackgroundThemeId>("none")
+  const [backgroundColor, setBackgroundColor] = useState("#f5f5f5")
   const [stage, setStage] = useState<PipelineStage>("idle")
   const [progress, setProgress] = useState(0)
   const [resultImage, setResultImage] = useState<string | null>(null)
@@ -69,7 +72,12 @@ export function useAgeTransform() {
       const res = await fetch("/api/transform", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: sourceImage, targetAge }),
+        body: JSON.stringify({
+          image: sourceImage,
+          targetAge,
+          background: backgroundTheme,
+          backgroundColor,
+        }),
       })
       if (!res.ok) throw new Error("No se pudo iniciar la transformación.")
       const data: StartTransformResponse = await res.json()
@@ -79,7 +87,7 @@ export function useAgeTransform() {
       setError("No se pudo iniciar la transformación.")
       setStage("error")
     }
-  }, [sourceImage, targetAge, clearPolling, poll])
+  }, [sourceImage, targetAge, backgroundTheme, backgroundColor, clearPolling, poll])
 
   const reset = useCallback(() => {
     clearPolling()
@@ -103,6 +111,10 @@ export function useAgeTransform() {
     setSourceImage,
     targetAge,
     setTargetAge,
+    backgroundTheme,
+    setBackgroundTheme,
+    backgroundColor,
+    setBackgroundColor,
     stage,
     progress,
     resultImage,

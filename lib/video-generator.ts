@@ -1,3 +1,11 @@
+import {
+  type BackgroundThemeId,
+  createParticles,
+  drawParticles,
+  stepParticles,
+  type Particle,
+} from "@/lib/particle-effects"
+
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
@@ -26,6 +34,7 @@ export async function generateCrossfadeVideo(
   afterSrc: string,
   afterFilter: string,
   durationMs = 3000,
+  backgroundTheme: BackgroundThemeId = "none",
 ): Promise<{ blob: Blob; url: string }> {
   const [before, after] = await Promise.all([loadImage(beforeSrc), loadImage(afterSrc)])
 
@@ -49,6 +58,9 @@ export async function generateCrossfadeVideo(
 
   const holdMs = 500
   const totalMs = durationMs + holdMs * 2
+
+  let particles: Particle[] = createParticles(backgroundTheme, width, height)
+  let lastParticleTime = performance.now()
 
   const finished = new Promise<{ blob: Blob; url: string }>((resolve) => {
     recorder.onstop = () => {
@@ -84,6 +96,11 @@ export async function generateCrossfadeVideo(
     ctx.drawImage(after, 0, 0, width, height)
     ctx.globalAlpha = 1
     ctx.filter = "none"
+
+    const dt = Math.min((t - lastParticleTime) / 1000, 0.05)
+    lastParticleTime = t
+    particles = stepParticles(backgroundTheme, particles, width, height, dt)
+    drawParticles(ctx, backgroundTheme, particles, width, height)
 
     if (elapsed < totalMs) {
       requestAnimationFrame(drawFrame)

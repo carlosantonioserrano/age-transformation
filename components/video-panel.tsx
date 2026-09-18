@@ -4,14 +4,16 @@ import { useState } from "react"
 import { Clapperboard, Download, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { generateCrossfadeVideo } from "@/lib/video-generator"
+import type { BackgroundThemeId } from "@/lib/particle-effects"
 
 interface VideoPanelProps {
   sourceImage: string
   resultImage: string
   afterFilter: string
+  backgroundTheme?: BackgroundThemeId
 }
 
-export function VideoPanel({ sourceImage, resultImage, afterFilter }: VideoPanelProps) {
+export function VideoPanel({ sourceImage, resultImage, afterFilter, backgroundTheme = "none" }: VideoPanelProps) {
   const [generating, setGenerating] = useState(false)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -20,7 +22,7 @@ export function VideoPanel({ sourceImage, resultImage, afterFilter }: VideoPanel
     setGenerating(true)
     setError(null)
     try {
-      const { url } = await generateCrossfadeVideo(sourceImage, resultImage, afterFilter)
+      const { url } = await generateCrossfadeVideo(sourceImage, resultImage, afterFilter, 3000, backgroundTheme)
       setVideoUrl(url)
     } catch {
       setError("No se pudo generar el video en este navegador.")

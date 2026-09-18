@@ -17,6 +17,10 @@ export interface StartTransformRequest {
   image: string
   /** Absolute target age (1-100), not a relative shift. */
   targetAge: number
+  /** Tema de fondo opcional ("none" | "snow" | "rain" | "leaves" | "waves" | ...). */
+  background?: string
+  /** Color hex (#rrggbb) usado únicamente cuando background === "solid". */
+  backgroundColor?: string
 }
 
 export interface StartTransformResponse {

@@ -10,13 +10,13 @@ export function SiteHeader() {
             <Sparkles className="size-4" aria-hidden="true" />
           </span>
           <div className="flex flex-col leading-none">
-            <span className="font-heading text-lg">Kronos</span>
-            <span className="font-mono text-[11px] text-muted-foreground">Simulador de edad · IA</span>
+            <span className="font-heading text-lg">AgeLab</span>
+            <span className="font-mono text-[11px] text-muted-foreground">simulador de edad · IA</span>
           </div>
         </div>
         <div className="flex items-center gap-4">
           <ThemeSwitcher />
-          <span className="hidden font-mono text-xs text-muted-foreground sm:inline">v1.3 · demo</span>
+          <span className="hidden font-mono text-xs text-muted-foreground sm:inline">v0.1 · demo</span>
         </div>
       </div>
     </header>
