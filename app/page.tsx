@@ -42,7 +42,7 @@ export default function Page() {
       <div className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-10 sm:px-6">
         <div className="flex flex-col gap-2">
           <h1 className="font-heading text-balance text-3xl sm:text-4xl">Mira cómo cambiarías con la edad</h1>
-          <p className="max-w-2xl text-pretty text-sm leading-relaxed text-muted-foreground">
+          <p className="max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground">
             Toma una foto o sube una imagen, elige la edad a la que quieres transformarte, y genera una comparación
             visual junto con un video de transición.
           </p>
@@ -54,7 +54,7 @@ export default function Page() {
 
             <Alert className="gap-1.5">
               <ShieldCheck className="size-4" aria-hidden="true" />
-              <AlertDescription className="text-xs leading-relaxed text-muted-foreground">
+              <AlertDescription className="text-sm leading-relaxed text-muted-foreground">
                 Tu foto se envía únicamente a Google Gemini para generar la transformación de edad; no se guarda de
                 forma permanente en este servicio ni se usa con otro fin. El video de comparación se genera en tu
                 propio navegador, sin enviarse a ningún servidor.
