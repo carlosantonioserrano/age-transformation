@@ -8,18 +8,23 @@ const MAIN_BG_STORAGE_KEY = "agelab-theme-main-bg"
 const CARD_BG_STORAGE_KEY = "agelab-theme-card-bg"
 
 const DEFAULT_ACCENT_COLOR = "#e0a239" // aproximación del ámbar por defecto de la app
-const DEFAULT_MAIN_BG_COLOR = "#241f1a" // aproximación del fondo general (main) por defecto
-const DEFAULT_CARD_BG_COLOR = "#332c24" // aproximación del fondo de tarjetas/divs por defecto
+const DEFAULT_MAIN_BG_COLOR = "#fafaf9" // aproximación del fondo general (main) por defecto: claro
+const DEFAULT_CARD_BG_COLOR = "#ffffff" // aproximación del fondo de tarjetas/divs por defecto: blanco
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value))
+}
 
 /**
- * Convierte un color hex (#rrggbb) a matiz (hue, 0-360) y saturación (0-1),
- * usando la fórmula estándar de HSL. La saturación es clave: sin ella, un
- * blanco/gris/negro (que no tienen matiz real) caería siempre en "rojo" por
- * defecto y se vería con un tinte rojizo no deseado. Al escalar el color
- * aplicado por la saturación real de lo elegido, blanco/gris/negro producen
- * un resultado neutro de verdad, y los colores vivos se aplican con fuerza.
+ * Convierte un color hex (#rrggbb) a matiz (hue, 0-360), saturación (0-1) y
+ * luminosidad (lightness, 0-1), usando la fórmula estándar de HSL.
+ * - La saturación evita que blanco/gris/negro (sin matiz real) se vean con
+ *   un tinte de color no deseado.
+ * - La luminosidad es la pieza clave para que el color elegido controle de
+ *   verdad si el resultado es claro u oscuro, en vez de forzar siempre un
+ *   brillo fijo.
  */
-function hexToHueSat(hex: string): { hue: number; sat: number } {
+function hexToHueSatLightness(hex: string): { hue: number; sat: number; lightness: number } {
   const r = Number.parseInt(hex.slice(1, 3), 16) / 255
   const g = Number.parseInt(hex.slice(3, 5), 16) / 255
   const b = Number.parseInt(hex.slice(5, 7), 16) / 255
@@ -28,7 +33,7 @@ function hexToHueSat(hex: string): { hue: number; sat: number } {
   const d = max - min
   const l = (max + min) / 2
 
-  if (d === 0) return { hue: 0, sat: 0 }
+  if (d === 0) return { hue: 0, sat: 0, lightness: l }
 
   let h: number
   if (max === r) h = ((g - b) / d) % 6
@@ -38,47 +43,59 @@ function hexToHueSat(hex: string): { hue: number; sat: number } {
   if (h < 0) h += 360
 
   const sat = d / (1 - Math.abs(2 * l - 1))
-  return { hue: h, sat: Math.min(1, sat) }
+  return { hue: h, sat: Math.min(1, sat), lightness: l }
+}
+
+/** Texto legible: claro sobre fondos oscuros, oscuro sobre fondos claros. */
+function contrastingTextLightness(surfaceLightness: number): number {
+  return surfaceLightness < 0.5 ? 0.96 : 0.18
 }
 
 /**
- * A partir del matiz elegido para BOTONES/ACENTOS, calcula y aplica las
- * variables de color de primary/accent (botones, enlaces, anillos de foco,
- * gráficos). El brillo/contraste de cada variable queda fijo (ya calibrado
- * para verse bien), solo cambia el tono.
+ * A partir del color elegido para BOTONES/ACENTOS, calcula y aplica
+ * primary/accent (botones, enlaces, anillos de foco, gráficos). El texto
+ * sobre el botón (--primary-foreground) se ajusta según qué tan claro u
+ * oscuro sea el color elegido, para que siempre sea legible.
  */
-function applyAccentHue(hue: number, sat: number) {
+function applyAccentColor(hue: number, sat: number, lightness: number) {
   const root = document.documentElement.style
   const accentHue = (hue + 130) % 360
+  const l = clamp(lightness, 0.25, 0.85) // un botón demasiado oscuro o casi blanco pierde su función de "acento"
   const c1 = 0.15 * sat
   const c2 = 0.1 * sat
+  const textL = contrastingTextLightness(l)
 
-  root.setProperty("--primary", `oklch(0.74 ${c1} ${hue})`)
-  root.setProperty("--primary-foreground", `oklch(0.15 ${0.02 * sat} ${hue})`)
-  root.setProperty("--accent", `oklch(0.68 ${c2} ${accentHue})`)
-  root.setProperty("--accent-foreground", `oklch(0.14 ${0.02 * sat} ${accentHue})`)
-  root.setProperty("--ring", `oklch(0.74 ${c1} ${hue} / 0.5)`)
-  root.setProperty("--chart-1", `oklch(0.74 ${c1} ${hue})`)
-  root.setProperty("--chart-2", `oklch(0.68 ${c2} ${accentHue})`)
-  root.setProperty("--sidebar-primary", `oklch(0.74 ${c1} ${hue})`)
-  root.setProperty("--sidebar-primary-foreground", `oklch(0.15 ${0.02 * sat} ${hue})`)
-  root.setProperty("--sidebar-ring", `oklch(0.74 ${c1} ${hue} / 0.5)`)
+  root.setProperty("--primary", `oklch(${l} ${c1} ${hue})`)
+  root.setProperty("--primary-foreground", `oklch(${textL} ${0.02 * sat} ${hue})`)
+  root.setProperty("--accent", `oklch(${l} ${c2} ${accentHue})`)
+  root.setProperty("--accent-foreground", `oklch(${contrastingTextLightness(l)} ${0.02 * sat} ${accentHue})`)
+  root.setProperty("--ring", `oklch(${l} ${c1} ${hue} / 0.5)`)
+  root.setProperty("--chart-1", `oklch(${l} ${c1} ${hue})`)
+  root.setProperty("--chart-2", `oklch(${l} ${c2} ${accentHue})`)
+  root.setProperty("--sidebar-primary", `oklch(${l} ${c1} ${hue})`)
+  root.setProperty("--sidebar-primary-foreground", `oklch(${textL} ${0.02 * sat} ${hue})`)
+  root.setProperty("--sidebar-ring", `oklch(${l} ${c1} ${hue} / 0.5)`)
 }
 
 /**
- * A partir del matiz elegido para el FONDO GENERAL, colorea únicamente la
- * superficie más externa: el <main> / <body> de toda la página (y su texto).
- * No toca tarjetas ni contenedores internos — eso lo maneja applyCardHue.
+ * A partir del color elegido para el FONDO GENERAL, colorea la superficie
+ * más externa: el <main>/<body> de toda la página (y su texto). No toca
+ * tarjetas ni contenedores internos — eso lo maneja applyCardBackgroundColor.
+ * El brillo real del color elegido decide si el resultado es un tema claro
+ * o uno oscuro.
  */
-function applyMainBackgroundHue(hue: number, sat: number) {
+function applyMainBackgroundColor(hue: number, sat: number, lightness: number) {
   const root = document.documentElement.style
-  const c = 0.07 * sat
-  const bg = `oklch(0.18 ${c} ${hue})`
+  const bgL = clamp(lightness, 0.05, 0.98)
+  const textL = contrastingTextLightness(bgL)
+  const c = 0.06 * sat
+  const bg = `oklch(${bgL} ${c} ${hue})`
 
   root.setProperty("--background", bg)
-  root.setProperty("--foreground", `oklch(0.96 ${0.01 * sat} ${hue})`)
-  root.setProperty("--sidebar", `oklch(0.21 ${c} ${hue})`)
-  root.setProperty("--sidebar-foreground", `oklch(0.96 ${0.01 * sat} ${hue})`)
+  root.setProperty("--foreground", `oklch(${textL} ${0.015 * sat} ${hue})`)
+  root.setProperty("--sidebar", `oklch(${bgL} ${c} ${hue})`)
+  root.setProperty("--sidebar-foreground", `oklch(${textL} ${0.015 * sat} ${hue})`)
+  root.setProperty("color-scheme", bgL < 0.5 ? "dark" : "light")
 
   // Respaldo directo: además de la variable CSS (que ya alimenta bg-background
   // en <html>/<body>/<main>), pintamos el body directamente por si algún
@@ -87,26 +104,36 @@ function applyMainBackgroundHue(hue: number, sat: number) {
 }
 
 /**
- * A partir del matiz elegido para TARJETAS/DIVS, colorea los contenedores
+ * A partir del color elegido para TARJETAS/DIVS, colorea los contenedores
  * internos: las cajas de cada sección (bg-card), popovers, fondos
- * secundarios/muted y el acento de la barra lateral. No toca el fondo
- * general de la página — eso lo maneja applyMainBackgroundHue.
+ * secundarios/muted y el acento de la barra lateral. La tarjeta siempre
+ * queda un poco más cerca del extremo "claro" que el color elegido — el
+ * mismo criterio con el que ya se ven las tarjetas en modo oscuro (más
+ * claras que el fondo) y en modo claro (blancas sobre un fondo apenas gris).
  */
-function applyCardBackgroundHue(hue: number, sat: number) {
+function applyCardBackgroundColor(hue: number, sat: number, lightness: number) {
   const root = document.documentElement.style
-  const c = 0.08 * sat
-  const cMuted = 0.07 * sat
+  const baseL = clamp(lightness, 0.05, 0.98)
+  const isDarkBase = baseL < 0.5
 
-  root.setProperty("--card", `oklch(0.23 ${c} ${hue})`)
-  root.setProperty("--card-foreground", `oklch(0.96 ${0.01 * sat} ${hue})`)
-  root.setProperty("--popover", `oklch(0.23 ${c} ${hue})`)
-  root.setProperty("--popover-foreground", `oklch(0.96 ${0.01 * sat} ${hue})`)
-  root.setProperty("--secondary", `oklch(0.28 ${c} ${hue})`)
-  root.setProperty("--secondary-foreground", `oklch(0.96 ${0.01 * sat} ${hue})`)
-  root.setProperty("--muted", `oklch(0.25 ${cMuted} ${hue})`)
-  root.setProperty("--muted-foreground", `oklch(0.68 ${0.05 * sat} ${hue})`)
-  root.setProperty("--sidebar-accent", `oklch(0.28 ${c} ${hue})`)
-  root.setProperty("--sidebar-accent-foreground", `oklch(0.96 ${0.01 * sat} ${hue})`)
+  const cardL = isDarkBase ? Math.min(0.97, baseL + 0.09) : Math.min(0.995, baseL + 0.02)
+  const secondaryL = isDarkBase ? Math.min(0.97, baseL + 0.13) : Math.max(0.86, baseL - 0.05)
+  const mutedL = isDarkBase ? Math.min(0.97, baseL + 0.11) : Math.max(0.88, baseL - 0.03)
+  const mutedTextL = isDarkBase ? 0.68 : 0.42
+
+  const c = 0.07 * sat
+  const textL = contrastingTextLightness(cardL)
+
+  root.setProperty("--card", `oklch(${cardL} ${c} ${hue})`)
+  root.setProperty("--card-foreground", `oklch(${textL} ${0.015 * sat} ${hue})`)
+  root.setProperty("--popover", `oklch(${cardL} ${c} ${hue})`)
+  root.setProperty("--popover-foreground", `oklch(${textL} ${0.015 * sat} ${hue})`)
+  root.setProperty("--secondary", `oklch(${secondaryL} ${c} ${hue})`)
+  root.setProperty("--secondary-foreground", `oklch(${contrastingTextLightness(secondaryL)} ${0.015 * sat} ${hue})`)
+  root.setProperty("--muted", `oklch(${mutedL} ${c * 0.85} ${hue})`)
+  root.setProperty("--muted-foreground", `oklch(${mutedTextL} ${0.04 * sat} ${hue})`)
+  root.setProperty("--sidebar-accent", `oklch(${secondaryL} ${c} ${hue})`)
+  root.setProperty("--sidebar-accent-foreground", `oklch(${contrastingTextLightness(secondaryL)} ${0.015 * sat} ${hue})`)
 }
 
 type Swatch = {
@@ -115,7 +142,7 @@ type Swatch = {
   icon: typeof Palette
   color: string
   setColor: (hex: string) => void
-  apply: (hue: number, sat: number) => void
+  apply: (hue: number, sat: number, lightness: number) => void
   storageKey: string
 }
 
@@ -129,25 +156,26 @@ export function ThemeSwitcher() {
   const cardBgInputRef = useRef<HTMLInputElement>(null)
 
   // Al montar, recupera los 3 colores guardados del navegador y los aplica
-  // (si no hay nada guardado para alguno, se queda con el valor por defecto).
+  // (si no hay nada guardado para alguno, se queda con el valor por defecto
+  // — que ahora es el tema claro definido en globals.css, sin tocar nada).
   useEffect(() => {
     const savedAccent = window.localStorage.getItem(ACCENT_STORAGE_KEY)
     if (savedAccent) {
       setAccentColor(savedAccent)
-      const { hue, sat } = hexToHueSat(savedAccent)
-      applyAccentHue(hue, sat)
+      const { hue, sat, lightness } = hexToHueSatLightness(savedAccent)
+      applyAccentColor(hue, sat, lightness)
     }
     const savedMainBg = window.localStorage.getItem(MAIN_BG_STORAGE_KEY)
     if (savedMainBg) {
       setMainBgColor(savedMainBg)
-      const { hue, sat } = hexToHueSat(savedMainBg)
-      applyMainBackgroundHue(hue, sat)
+      const { hue, sat, lightness } = hexToHueSatLightness(savedMainBg)
+      applyMainBackgroundColor(hue, sat, lightness)
     }
     const savedCardBg = window.localStorage.getItem(CARD_BG_STORAGE_KEY)
     if (savedCardBg) {
       setCardBgColor(savedCardBg)
-      const { hue, sat } = hexToHueSat(savedCardBg)
-      applyCardBackgroundHue(hue, sat)
+      const { hue, sat, lightness } = hexToHueSatLightness(savedCardBg)
+      applyCardBackgroundColor(hue, sat, lightness)
     }
   }, [])
 
@@ -158,7 +186,7 @@ export function ThemeSwitcher() {
       icon: Palette,
       color: accentColor,
       setColor: setAccentColor,
-      apply: applyAccentHue,
+      apply: applyAccentColor,
       storageKey: ACCENT_STORAGE_KEY,
     },
     {
@@ -167,7 +195,7 @@ export function ThemeSwitcher() {
       icon: PaintBucket,
       color: mainBgColor,
       setColor: setMainBgColor,
-      apply: applyMainBackgroundHue,
+      apply: applyMainBackgroundColor,
       storageKey: MAIN_BG_STORAGE_KEY,
     },
     {
@@ -176,7 +204,7 @@ export function ThemeSwitcher() {
       icon: Layers,
       color: cardBgColor,
       setColor: setCardBgColor,
-      apply: applyCardBackgroundHue,
+      apply: applyCardBackgroundColor,
       storageKey: CARD_BG_STORAGE_KEY,
     },
   ]
@@ -190,8 +218,8 @@ export function ThemeSwitcher() {
   const handleChange = (swatch: Swatch) => (event: React.ChangeEvent<HTMLInputElement>) => {
     const hex = event.target.value
     swatch.setColor(hex)
-    const { hue, sat } = hexToHueSat(hex)
-    swatch.apply(hue, sat)
+    const { hue, sat, lightness } = hexToHueSatLightness(hex)
+    swatch.apply(hue, sat, lightness)
     window.localStorage.setItem(swatch.storageKey, hex)
   }
 
