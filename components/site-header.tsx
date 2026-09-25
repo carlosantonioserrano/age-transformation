@@ -16,7 +16,7 @@ export function SiteHeader() {
         </div>
         <div className="flex items-center gap-4">
           <ThemeSwitcher />
-          <span className="hidden font-mono text-xs text-muted-foreground sm:inline">v0.1 · demo</span>
+          <span className="hidden font-mono text-xs text-muted-foreground sm:inline">v2.1 · demo</span>
         </div>
       </div>
     </header>

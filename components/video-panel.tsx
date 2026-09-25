@@ -37,7 +37,7 @@ export function VideoPanel({ sourceImage, resultImage, afterFilter, backgroundTh
         <Clapperboard className="size-4 text-primary" aria-hidden="true" />
         <h3 className="font-heading text-base">Video de transición</h3>
       </div>
-      <p className="text-xs leading-relaxed text-muted-foreground">
+      <p className="text-sm leading-relaxed text-muted-foreground">
         Genera un clip corto con un efecto de transición (crossfade) entre la foto original y el resultado.
       </p>
 

@@ -55,7 +55,7 @@ export function ResultPanel({
       />
 
       {simulated && (
-        <p className="text-xs leading-relaxed text-muted-foreground">
+        <p className="text-sm leading-relaxed text-muted-foreground">
           No hay una clave de proveedor de IA configurada, así que este resultado es un placeholder visual generado
           en el cliente. Conecta una API de transformación de edad (p. ej. Gemini / nano banana) para obtener resultados reales.
         </p>
