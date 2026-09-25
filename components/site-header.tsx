@@ -8,7 +8,7 @@ export function SiteHeader() {
         <div className="flex items-center gap-2.5">
           <span className="flex size-8 items-center justify-center overflow-hidden rounded-md">
             <Image
-              src="/logo-icon.png"
+              src="/facetime_logo_32x32.svg"
               alt="Logo Facetime"
               width={32}
               height={32}
@@ -23,7 +23,7 @@ export function SiteHeader() {
         </div>
         <div className="flex items-center gap-4">
           <ThemeSwitcher />
-          <span className="hidden font-mono text-xs text-muted-foreground sm:inline">v2.1 · demo</span>
+          <span className="hidden font-mono text-xs text-muted-foreground sm:inline">v2.1</span>
         </div>
       </div>
     </header>
