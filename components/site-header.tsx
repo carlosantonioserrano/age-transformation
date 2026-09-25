@@ -10,7 +10,7 @@ export function SiteHeader() {
             <Sparkles className="size-4" aria-hidden="true" />
           </span>
           <div className="flex flex-col leading-none">
-            <span className="font-heading text-lg">AgeLab</span>
+            <span className="font-heading text-lg">Facetime</span>
             <span className="font-mono text-[11px] text-muted-foreground">simulador de edad · IA</span>
           </div>
         </div>

@@ -106,19 +106,22 @@ function applyMainBackgroundColor(hue: number, sat: number, lightness: number) {
 /**
  * A partir del color elegido para TARJETAS/DIVS, colorea los contenedores
  * internos: las cajas de cada sección (bg-card), popovers, fondos
- * secundarios/muted y el acento de la barra lateral. La tarjeta siempre
- * queda un poco más cerca del extremo "claro" que el color elegido — el
- * mismo criterio con el que ya se ven las tarjetas en modo oscuro (más
- * claras que el fondo) y en modo claro (blancas sobre un fondo apenas gris).
+ * secundarios/muted y el acento de la barra lateral.
+ *
+ * La tarjeta (--card/--popover) usa el color EXACTO que elegiste — sin
+ * desplazarlo — para que lo que ves en el círculo sea lo que obtienes.
+ * Los tonos secundarios (--secondary/--muted) sí se derivan con un ligero
+ * desplazamiento a partir de ese mismo color, porque son superficies de
+ * apoyo (menos protagonistas) que deben distinguirse un poco de la tarjeta
+ * principal para que la jerarquía visual siga siendo clara.
  */
 function applyCardBackgroundColor(hue: number, sat: number, lightness: number) {
   const root = document.documentElement.style
-  const baseL = clamp(lightness, 0.05, 0.98)
-  const isDarkBase = baseL < 0.5
+  const cardL = clamp(lightness, 0.05, 0.98)
+  const isDarkBase = cardL < 0.5
 
-  const cardL = isDarkBase ? Math.min(0.97, baseL + 0.09) : Math.min(0.995, baseL + 0.02)
-  const secondaryL = isDarkBase ? Math.min(0.97, baseL + 0.13) : Math.max(0.86, baseL - 0.05)
-  const mutedL = isDarkBase ? Math.min(0.97, baseL + 0.11) : Math.max(0.88, baseL - 0.03)
+  const secondaryL = isDarkBase ? Math.min(0.97, cardL + 0.06) : Math.max(0.86, cardL - 0.05)
+  const mutedL = isDarkBase ? Math.min(0.97, cardL + 0.04) : Math.max(0.88, cardL - 0.03)
   const mutedTextL = isDarkBase ? 0.68 : 0.42
 
   const c = 0.07 * sat
