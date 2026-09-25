@@ -30,7 +30,7 @@ export const metadata: Metadata = {
         media: '(prefers-color-scheme: dark)',
       },
       {
-        url: '/icon.svg',
+        url: '/facetime_logo_32x32.svg',
         type: 'image/svg+xml',
       },
     ],
